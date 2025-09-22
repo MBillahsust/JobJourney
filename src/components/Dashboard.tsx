@@ -42,21 +42,6 @@ export function Dashboard() {
           <h1 className="text-2xl font-semibold">Good morning, Alex!</h1>
           <p className="text-muted-foreground">Let's continue your job search journey</p>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-2 relative">
-              <div className="w-12 h-12 border-4 border-primary rounded-full border-r-transparent animate-spin-slow"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-xs font-semibold text-primary">7</span>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">Day Streak</p>
-          </div>
-          <Button size="sm" className="gap-2">
-            <Play className="h-4 w-4" />
-            Start Today's Plan
-          </Button>
-        </div>
       </div>
 
       {/* Stats Cards */}
