@@ -377,5 +377,3 @@ erDiagram
 * **Written Exam:** a **timed, JD-aligned assessment** (MCQ/short answers/code/SQL/system design mini) with auto-scoring and feedback.
 
 ---
-
-**JobJourney** now includes a **JD-aligned written exam** that feeds directly into your gap list and plan—so you can test, learn, tailor, and apply in one place. Ready to turn this into the repo README + slides?
