@@ -1,4 +1,4 @@
-# JobJourney — Project Proposal (Updated)
+# JobJourney — Project Proposal
 
 ## 0) Executive Summary
 
