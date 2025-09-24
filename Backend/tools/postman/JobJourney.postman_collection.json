@@ -30,6 +30,7 @@
         }
       ]
     },
+    
     {
       "name": "Register - create user",
       "request": {
@@ -39,7 +40,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\",\n  \"email\": \"test.user+{{random}}@example.com\",\n  \"password\": \"supersecret8\",\n  \"phone\": \"0123456789\",\n  \"location\": \"Dhaka\"\n}"
+          "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\",\n  \"email\": \"themkb@example.com\",\n  \"password\": \"supersecret8\",\n  \"phone\": \"0123456789\",\n  \"location\": \"Dhaka\"\n}"
         },
         "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth","register"] }
       },
@@ -64,11 +65,45 @@
       ]
     },
     {
+      "name": "Register - detailed user",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Detailed\",\n  \"lastName\": \"User\",\n  \"email\": \"themkb@example.com\",\n  \"password\": \"supersecret8\",\n  \"phone\": \"+8801712345678\",\n  \"location\": \"Dhaka, Bangladesh\",\n  \"targetRoles\": [\"Backend Engineer\", \"Full Stack\"],\n  \"seniorityLevel\": \"mid\",\n  \"preferredLocations\": [\"Dhaka\", \"Remote\"]\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth","register"] }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": { "exec": [ "pm.environment.set('random', Math.floor(Math.random()*10000));" ], "type": "text/javascript" }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('register detailed 201', function () { pm.response.to.have.status(201); });",
+              "var json = pm.response.json();",
+              "pm.environment.set('accessToken', json.accessToken);",
+              "pm.environment.set('refreshToken', json.refreshToken);",
+              "if (json.user && json.user.id) pm.environment.set('detailedUserId', json.user.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
       "name": "Login - get fresh token",
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": { "mode": "raw", "raw": "{\n  \"email\": \"test.user+{{random}}@example.com\",\n  \"password\": \"supersecret8\"\n}" },
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"themkb@example.com\",\n  \"password\": \"supersecret8\"\n}" },
+
         "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth","login"] }
       },
       "event": [
@@ -97,6 +132,37 @@
       "event": [ { "listen": "test", "script": { "exec": [ "pm.test('me 200', function () { pm.response.to.have.status(200); });" ], "type": "text/javascript" } } ]
     },
     {
+      "name": "Update My Account",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Updated\",\n  \"lastName\": \"User\",\n  \"phone\": \"+8801911111111\",\n  \"location\": \"Remote\",\n  \"targetRoles\": [\"Backend Engineer\"],\n  \"seniorityLevel\": \"mid\",\n  \"preferredLocations\": [\"Remote\"]\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/me/account", "host": ["{{baseUrl}}"], "path": ["me","account"] }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": { "exec": [ "pm.environment.set('random', Math.floor(Math.random()*10000));" ], "type": "text/javascript" }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('update account 200', function () { pm.response.to.have.status(200); });",
+              "var j = pm.response.json(); if (j && j.email) pm.environment.set('userEmail', j.email);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
       "name": "Create Job (import)",
       "request": {
         "method": "POST",
@@ -105,6 +171,65 @@
         "url": { "raw": "{{baseUrl}}/jobs/import", "host": ["{{baseUrl}}"], "path": ["jobs","import"] }
       },
       "event": [ { "listen": "test", "script": { "exec": [ "pm.test('jobs/import 201', function () { pm.response.to.have.status(201); });", "var j = pm.response.json(); if (j.jobId) pm.environment.set('jobId', j.jobId);" ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Generate & Save Exam (LLM or fallback)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+  "body": { "mode": "raw", "raw": "{\n  \"title\": \"Node & Mongo Basics\",\n  \"examType\": \"standard\",\n  \"role\": \"Backend Engineer\",\n  \"experienceLevel\": \"mid\",\n  \"sections\": [\"Core CS\", \"Coding\"],\n  \"topics\": [\"Node.js\",\"MongoDB\"],\n  \"numMcq\": 4, \"numShort\": 1, \"numCode\": 1,\n  \"timeLimitMin\": 20,\n  \"save\": true\n}" },
+        "url": { "raw": "{{baseUrl}}/exams/generate", "host": ["{{baseUrl}}"], "path": ["exams","generate"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('generate exam done', function () { pm.response.to.have.status(201); });", "var j = pm.response.json(); if (j.examId) pm.environment.set('examId', j.examId);" ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Start Exam Session",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "body": { "mode": "raw", "raw": "{ \"timeLimitMin\": 15 }" },
+        "url": { "raw": "{{baseUrl}}/exams/{{examId}}/sessions", "host": ["{{baseUrl}}"], "path": ["exams","{{examId}}","sessions"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('start session 201', function () { pm.response.to.have.status(201); });", "var j = pm.response.json(); if (j.sessionId) pm.environment.set('sessionId', j.sessionId);" ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Get Session Questions",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": { "raw": "{{baseUrl}}/exams/sessions/{{sessionId}}/questions", "host": ["{{baseUrl}}"], "path": ["exams","sessions","{{sessionId}}","questions"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('questions 200', function () { pm.response.to.have.status(200); });", "var j = pm.response.json(); if (j.questions && j.questions.length) pm.environment.set('firstQId', j.questions[0]._id || j.questions[0].id);" ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Submit MCQ Answer (idempotent)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "body": { "mode": "raw", "raw": "{ \"questionId\": \"{{firstQId}}\", \"selectedIndex\": 1, \"timeSpentSec\": 20 }" },
+        "url": { "raw": "{{baseUrl}}/exams/sessions/{{sessionId}}/answers", "host": ["{{baseUrl}}"], "path": ["exams","sessions","{{sessionId}}","answers"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('submit mcq 200', function () { pm.response.to.have.status(200); });" ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Submit Short Answer",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "body": { "mode": "raw", "raw": "{ \"questionId\": \"{{firstQId}}\", \"text\": \"This is a sample short answer for testing purposes.\" }" },
+        "url": { "raw": "{{baseUrl}}/exams/sessions/{{sessionId}}/answers", "host": ["{{baseUrl}}"], "path": ["exams","sessions","{{sessionId}}","answers"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('submit short 200', function () { pm.response.to.have.status(200); });" ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Finish Session (LLM grading)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "body": { "mode": "raw", "raw": "{ \"gradeOpenWithLLM\": true }" },
+        "url": { "raw": "{{baseUrl}}/exams/sessions/{{sessionId}}/finish", "host": ["{{baseUrl}}"], "path": ["exams","sessions","{{sessionId}}","finish"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('finish 200', function () { pm.response.to.have.status(200); });", "var j = pm.response.json(); pm.test('percent present', function () { pm.expect(j).to.have.property('percent'); });" ], "type": "text/javascript" } } ]
     },
     {
       "name": "Create Job Alert",
@@ -171,6 +296,68 @@
         "url": { "raw": "{{baseUrl}}/job-alerts/{{alertId}}", "host": ["{{baseUrl}}"], "path": ["job-alerts","{{alertId}}"] }
       },
       "event": [ { "listen": "test", "script": { "exec": [ "pm.test('delete alert 204', function () { pm.response.to.have.status(204); });" ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Learning - Manual Plan",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"job_title\": \"ML Engineer\",\n  \"company_name\": \"Facebook\",\n  \"target_date\": \"tomorrow\",\n  \"experience_level\": \"Noob\",\n  \"focus_areas\": \"do as your wish\",\n  \"skill_gaps\": \"CSS\"\n}" },
+        "url": { "raw": "{{baseUrl}}/learning/manual", "host": ["{{baseUrl}}"], "path": ["learning","manual"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [
+        "pm.test('learning manual 201', function () { pm.response.to.have.status(201); });",
+        "var j = pm.response.json(); if (j.id) pm.environment.set('learningPlanManualId', j.id);"
+      ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Learning - Job Description Plan",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"job_content\": \"We are hiring an ML engineer to build scalable systems.\",\n  \"skill_analysis_text\": \"Strong Python, needs more MLOps\",\n  \"plan_duration\": \"7 days\"\n}" },
+        "url": { "raw": "{{baseUrl}}/learning/job-description", "host": ["{{baseUrl}}"], "path": ["learning","job-description"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [
+        "pm.test('learning job-description 201', function () { pm.response.to.have.status(201); });",
+        "var j = pm.response.json(); if (j.id) pm.environment.set('learningPlanJobDescId', j.id);"
+      ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Learning - List Plans",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": { "raw": "{{baseUrl}}/learning", "host": ["{{baseUrl}}"], "path": ["learning"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [
+        "pm.test('learning list 200', function () { pm.response.to.have.status(200); });",
+        "var j = pm.response.json(); pm.test('items array', function () { pm.expect(j.items).to.be.an('array'); });"
+      ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Learning - Get Manual Plan Detail",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": { "raw": "{{baseUrl}}/learning/{{learningPlanManualId}}", "host": ["{{baseUrl}}"], "path": ["learning","{{learningPlanManualId}}"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [
+        "pm.test('manual plan detail 200', function () { pm.response.to.have.status(200); });",
+        "var j = pm.response.json(); pm.test('has kind manual', function () { pm.expect(j.kind).to.eql('manual'); });"
+      ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Learning - Get Job Desc Plan Detail",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": { "raw": "{{baseUrl}}/learning/{{learningPlanJobDescId}}", "host": ["{{baseUrl}}"], "path": ["learning","{{learningPlanJobDescId}}"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [
+        "pm.test('job desc plan detail 200', function () { pm.response.to.have.status(200); });",
+        "var j = pm.response.json(); pm.test('has kind job_description', function () { pm.expect(j.kind).to.eql('job_description'); });"
+      ], "type": "text/javascript" } } ]
     },
     {
       "name": "Logout",

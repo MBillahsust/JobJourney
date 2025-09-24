@@ -5,7 +5,7 @@ const router = Router();
 router.get("/docs/openapi.json", (_req, res: Response) => {
   const spec = {
     openapi: "3.0.3",
-    info: { title: "JobJourney API", version: "0.5.0" },
+  info: { title: "JobJourney API", version: "0.6.1" },
     servers: [{ url: "/v1" }],
     paths: {
       "/health": { get: { summary: "Health", responses: { "200": { description: "OK" } } } },
@@ -92,7 +92,17 @@ router.get("/docs/openapi.json", (_req, res: Response) => {
       },
       "/job-alerts/{id}/run-now": { post: { summary: "Run alert immediately", responses: { "200": { description: "OK" } } } },
       "/job-alerts/{id}/pause": { post: { summary: "Pause alert", responses: { "200": { description: "OK" } } } },
-      "/job-alerts/{id}/resume": { post: { summary: "Resume alert", responses: { "200": { description: "OK" } } } }
+      "/job-alerts/{id}/resume": { post: { summary: "Resume alert", responses: { "200": { description: "OK" } } } },
+
+  "/exams/generate": { post: { summary: "Generate exam (LLM or fallback)", description: "Accepts examType ('mcq-only'|'standard'), role, experienceLevel, sections, plus counts/timeLimit. Set save=true to persist.", responses: { "200": { description: "OK" }, "201": { description: "Created" } } } },
+  "/exams": { post: { summary: "Create exam from spec", description: "Create exam with examType, role, experienceLevel, sections and questions array.", responses: { "201": { description: "Created" } } } },
+      "/exams/{id}": { get: { summary: "Get exam (answers redacted)", responses: { "200": { description: "OK" } } } },
+      "/exams/{id}/sessions": { post: { summary: "Start exam session", responses: { "201": { description: "Created" } } } },
+      "/exams/sessions/{id}/questions": { get: { summary: "Get session questions (redacted)", responses: { "200": { description: "OK" } } } },
+      "/exams/sessions/{id}/next": { get: { summary: "Get next unanswered question", responses: { "200": { description: "OK" } } } },
+      "/exams/sessions/{id}/answers": { post: { summary: "Submit answer", responses: { "200": { description: "OK" } } } },
+      "/exams/sessions/{id}/finish": { post: { summary: "Finish session & grade", responses: { "200": { description: "OK" } } } },
+      "/exams/sessions/{id}": { get: { summary: "Get session detail/result", responses: { "200": { description: "OK" } } } }
     }
   };
   res.json(spec);

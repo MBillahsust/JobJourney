@@ -40,17 +40,17 @@ const ProfileSchema = new mongoose_1.Schema({
     location: String,
     targets: {
         roles: [String],
-        seniority: { type: String, enum: ["intern", "junior", "mid", "senior", "lead"] }
+        seniority: { type: String, enum: ["intern", "junior", "mid", "senior", "lead"] },
     },
-    preferredLocations: [String]
+    preferredLocations: [String],
 }, { _id: false });
 const UserSchema = new mongoose_1.Schema({
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
     email: { type: String, required: true, unique: true, index: true },
     passwordHash: { type: String, required: true },
-    tokenVersion: { type: Number, default: 0 }, // << NEW
-    profile: { type: ProfileSchema, default: {} }
+    tokenVersion: { type: Number, default: 0 },
+    profile: { type: ProfileSchema, default: {} },
 }, { timestamps: true });
 // Ensure emails are stored lowercase and trimmed
 UserSchema.pre("save", function (next) {
