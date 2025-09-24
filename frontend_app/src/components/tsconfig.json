@@ -1,0 +1,7 @@
+{
+    "compilerOptions": {
+      "jsx": "react-jsx",        // or "react"
+      "lib": ["dom", "es2020"]   // DOM types are needed for JSX
+    }
+  }
+  
