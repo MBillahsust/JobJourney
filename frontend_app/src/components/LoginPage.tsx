@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -19,9 +19,45 @@ import {
 
 interface LoginPageProps {
   onBack: () => void;
+  /** Called after a successful login. Receives the email/password entered. */
   onLogin: (email: string, password: string) => void;
   onRegister: () => void;
 }
+
+/** Matches your /v1/auth/login success response in auth.routes.ts */
+type ServerLoginSuccess = {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+};
+
+type ServerError = {
+  error?: { code?: string; message?: string };
+  message?: string;
+};
+
+/**
+ * Robust API base:
+ * - CRA: REACT_APP_API_BASE (your .env)
+ * - Vite (optional): VITE_API_BASE
+ * - Window override (optional): window.__API_BASE__
+ * - Fallback: http://localhost:4000
+ */
+const API_BASE =
+  (typeof process !== 'undefined' &&
+    (process as any).env &&
+    (process as any).env.REACT_APP_API_BASE) ||
+  (typeof import.meta !== 'undefined' &&
+    (import.meta as any).env &&
+    (import.meta as any).env.VITE_API_BASE) ||
+  (typeof window !== 'undefined' && (window as any).__API_BASE__) ||
+  'http://localhost:4000';
 
 export function LoginPage({ onBack, onLogin, onRegister }: LoginPageProps) {
   const [email, setEmail] = useState('');
@@ -31,38 +67,105 @@ export function LoginPage({ onBack, onLogin, onRegister }: LoginPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Load remembered email on mount
+  useEffect(() => {
+    try {
+      const remembered = localStorage.getItem('rememberedEmail');
+      if (remembered) {
+        setEmail(remembered);
+        setRememberMe(true);
+      }
+    } catch {
+      // ignore storage issues
+    }
+  }, []);
+
+  const persistTokensAndSession = (payload: ServerLoginSuccess) => {
+    try {
+      localStorage.setItem('accessToken', payload.accessToken);
+      localStorage.setItem('refreshToken', payload.refreshToken);
+      localStorage.setItem('user', JSON.stringify(payload.user));
+      // Soft expiry hint for the client (optional, used by HomePage auto-refresh)
+      const expiresAt = Date.now() + Math.max(payload.expiresIn - 60, 60) * 1000;
+      localStorage.setItem('accessTokenExpiresAt', String(expiresAt));
+    } catch {
+      // ignore storage issues
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setIsLoading(true);
 
     // Basic validation
-    if (!email || !password) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
       setError('Please fill in all fields');
-      setIsLoading(false);
       return;
     }
-
-    if (!email.includes('@')) {
+    if (!trimmedEmail.includes('@')) {
       setError('Please enter a valid email address');
-      setIsLoading(false);
       return;
     }
 
-    // Simulate API call
-    setTimeout(() => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // If NOT using cookies on API, keep credentials omitted.
+        body: JSON.stringify({ email: trimmedEmail, password }),
+      });
+
+      let data: (ServerLoginSuccess & ServerError) | null = null;
+      try {
+        data = (await res.json()) as ServerLoginSuccess & ServerError;
+      } catch {
+        // non-JSON response
+      }
+
+      if (!res.ok) {
+        const msg =
+          data?.error?.message ||
+          data?.message ||
+          (res.status === 401
+            ? 'Invalid credentials'
+            : res.status === 429
+            ? 'Too many attempts. Please try again later.'
+            : `Login failed (HTTP ${res.status})`);
+        throw new Error(msg);
+      }
+
+      const payload = data as ServerLoginSuccess;
+      persistTokensAndSession(payload);
+
+      // Remember me (email only)
+      try {
+        if (rememberMe) localStorage.setItem('rememberedEmail', trimmedEmail);
+        else localStorage.removeItem('rememberedEmail');
+      } catch {}
+
+      // Notify parent so it can switch to HomePage view
+      onLogin(trimmedEmail, password);
+
+      // Fallback navigation (if parent didn't change view)
+      // You can remove this if your parent definitely swaps the view.
+      setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          // If you're using React Router, prefer: navigate('/');
+          if (window.location.pathname !== '/') window.location.href = '/';
+        }
+      }, 0);
+    } catch (err: any) {
+      setError(err?.message || 'Something went wrong while logging in');
+    } finally {
       setIsLoading(false);
-      onLogin(email, password);
-    }, 1000);
+    }
   };
 
-  const handleSocialLogin = (provider: string) => {
-    setIsLoading(true);
-    // Simulate social login
-    setTimeout(() => {
-      setIsLoading(false);
-      onLogin(`demo@${provider}.com`, `${provider}-oauth`);
-    }, 1500);
+  const handleSocialLogin = (provider: 'google' | 'linkedin') => {
+    // Later you can do: window.location.href = `${API_BASE}/v1/auth/${provider}`
+    setError(`"${provider}" sign-in is not configured yet.`);
   };
 
   return (
@@ -206,7 +309,7 @@ export function LoginPage({ onBack, onLogin, onRegister }: LoginPageProps) {
                       Remember me
                     </Label>
                   </div>
-                  <Button variant="link" className="px-0 text-sm">
+                  <Button type="button" variant="link" className="px-0 text-sm">
                     Forgot password?
                   </Button>
                 </div>
@@ -229,31 +332,6 @@ export function LoginPage({ onBack, onLogin, onRegister }: LoginPageProps) {
                   disabled={isLoading}
                 >
                   Sign up for free
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Demo Credentials */}
-          <Card className="border-dashed border-2 border-muted-foreground/20 bg-muted/20">
-            <CardContent className="p-4">
-              <div className="text-center space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Demo Credentials</p>
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  <p>Email: demo@jobjourney.com</p>
-                  <p>Password: demo123</p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setEmail('demo@jobjourney.com');
-                    setPassword('demo123');
-                  }}
-                  disabled={isLoading}
-                  className="text-xs"
-                >
-                  Use Demo Credentials
                 </Button>
               </div>
             </CardContent>
