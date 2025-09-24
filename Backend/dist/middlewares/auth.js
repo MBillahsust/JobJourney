@@ -1,0 +1,24 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.requireAuth = requireAuth;
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+function requireAuth(req, res, next) {
+    const header = req.headers.authorization;
+    if (!header)
+        return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Missing token" } });
+    const [scheme, token] = header.split(" ");
+    if (scheme !== "Bearer" || !token) {
+        return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Bad authorization header" } });
+    }
+    try {
+        const decoded = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET);
+        req.user = { id: decoded.sub };
+        next();
+    }
+    catch {
+        return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Invalid/expired token" } });
+    }
+}

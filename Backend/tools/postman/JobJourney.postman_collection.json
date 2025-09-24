@@ -1,0 +1,187 @@
+{
+  "info": {
+    "name": "JobJourney API - Smoke Tests",
+    "_postman_id": "f3a2b8d0-0000-4000-8000-000000000001",
+    "description": "Collection to test the JobJourney backend: register, login, jobs, job-alerts, and common flows.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('health 200', function () { pm.response.to.have.status(200); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Register - create user",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\",\n  \"email\": \"test.user+{{random}}@example.com\",\n  \"password\": \"supersecret8\",\n  \"phone\": \"0123456789\",\n  \"location\": \"Dhaka\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth","register"] }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": { "exec": [ "pm.environment.set('random', Math.floor(Math.random()*10000));" ], "type": "text/javascript" }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('register 201', function () { pm.response.to.have.status(201); });",
+              "var json = pm.response.json();",
+              "pm.environment.set('accessToken', json.accessToken);",
+              "pm.environment.set('refreshToken', json.refreshToken);",
+              "if (json.user && json.user.id) pm.environment.set('userId', json.user.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Login - get fresh token",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"test.user+{{random}}@example.com\",\n  \"password\": \"supersecret8\"\n}" },
+        "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth","login"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('login 200', function () { pm.response.to.have.status(200); });",
+              "var json = pm.response.json();",
+              "pm.environment.set('accessToken', json.accessToken);",
+              "pm.environment.set('refreshToken', json.refreshToken);",
+              "if (json.user && json.user.id) pm.environment.set('userId', json.user.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get /me (current user)",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": { "raw": "{{baseUrl}}/me", "host": ["{{baseUrl}}"], "path": ["me"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('me 200', function () { pm.response.to.have.status(200); });" ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Create Job (import)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"title\": \"Junior Backend Engineer\",\n  \"company\": { \"name\": \"Nexus\" },\n  \"location\": \"Dhaka, BD\",\n  \"remote\": \"hybrid\",\n  \"employmentType\": \"full_time\",\n  \"seniority\": \"junior\",\n  \"skillsRequired\": [\"Node.js\",\"MongoDB\",\"REST\"]\n}" },
+        "url": { "raw": "{{baseUrl}}/jobs/import", "host": ["{{baseUrl}}"], "path": ["jobs","import"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('jobs/import 201', function () { pm.response.to.have.status(201); });", "var j = pm.response.json(); if (j.jobId) pm.environment.set('jobId', j.jobId);" ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Create Job Alert",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Junior Backend in Dhaka\",\n  \"q\": \"backend\",\n  \"location\": \"Dhaka\",\n  \"remote\": \"hybrid\",\n  \"skills\": [\"Node.js\",\"MongoDB\"],\n  \"frequency\": \"daily\"\n}" },
+        "url": { "raw": "{{baseUrl}}/job-alerts", "host": ["{{baseUrl}}"], "path": ["job-alerts"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('job-alerts create 201', function () { pm.response.to.have.status(201); });", "var r = pm.response.json(); if (r.id) pm.environment.set('alertId', r.id);" ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Preview Alert Results",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"q\": \"backend\",\n  \"location\": \"Dhaka\",\n  \"skills\": [\"Node.js\"],\n  \"limit\": 10\n}" },
+        "url": { "raw": "{{baseUrl}}/job-alerts/preview", "host": ["{{baseUrl}}"], "path": ["job-alerts","preview"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('preview 200', function () { pm.response.to.have.status(200); });", "var json = pm.response.json(); pm.test('items array', function () { pm.expect(json.items).to.be.an('array'); });" ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Run Alert Now",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "body": { "mode": "raw", "raw": "{ \"limit\": 10 }" },
+        "url": { "raw": "{{baseUrl}}/job-alerts/{{alertId}}/run-now", "host": ["{{baseUrl}}"], "path": ["job-alerts","{{alertId}}","run-now"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('run-now 200', function () { pm.response.to.have.status(200); });", "var j = pm.response.json(); pm.test('alert object present', function () { pm.expect(j.alert).to.be.an('object'); });" ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Pause Alert",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": { "raw": "{{baseUrl}}/job-alerts/{{alertId}}/pause", "host": ["{{baseUrl}}"], "path": ["job-alerts","{{alertId}}","pause"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('pause 200', function () { pm.response.to.have.status(200); });", "var j = pm.response.json(); pm.test('status paused', function () { pm.expect(j.status).to.eql('paused'); });" ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Resume Alert",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": { "raw": "{{baseUrl}}/job-alerts/{{alertId}}/resume", "host": ["{{baseUrl}}"], "path": ["job-alerts","{{alertId}}","resume"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('resume 200', function () { pm.response.to.have.status(200); });", "var j = pm.response.json(); pm.test('status active', function () { pm.expect(j.status).to.eql('active'); });" ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "List Alerts",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": { "raw": "{{baseUrl}}/job-alerts", "host": ["{{baseUrl}}"], "path": ["job-alerts"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('list alerts 200', function () { pm.response.to.have.status(200); });", "var j = pm.response.json(); pm.test('items is array', function () { pm.expect(j.items).to.be.an('array'); });" ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Delete Alert",
+      "request": {
+        "method": "DELETE",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": { "raw": "{{baseUrl}}/job-alerts/{{alertId}}", "host": ["{{baseUrl}}"], "path": ["job-alerts","{{alertId}}"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('delete alert 204', function () { pm.response.to.have.status(204); });" ], "type": "text/javascript" } } ]
+    },
+    {
+      "name": "Logout",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": { "raw": "{{baseUrl}}/auth/logout", "host": ["{{baseUrl}}"], "path": ["auth","logout"] }
+      },
+      "event": [ { "listen": "test", "script": { "exec": [ "pm.test('logout 204', function () { pm.response.to.have.status(204); });" ], "type": "text/javascript" } } ]
+    }
+  ],
+  "event": [],
+  "variable": []
+}
