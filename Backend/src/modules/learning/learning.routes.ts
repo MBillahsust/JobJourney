@@ -194,6 +194,108 @@ router.post("/learning/manual", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+/**
+ * Body (all strings) — EXACTLY as requested:
+ * {
+ *  "job_title": "Networking Engineer",
+ *  "company_name": "Facebook",
+ *  "plan_duration": "21 days",
+ *  "experience_level": "Experienced",
+ *  "focus_areas": "software engineer",
+ *  "skill_gaps": "CSS"
+ * }
+ *
+ * Response always includes:
+ * - id: string
+ * - dailyPlan: stringified JSON **array** of { day, tasks[3] }
+ * - sup: same as dailyPlan but as an array (not string) — convenience
+ * - weeklyMilestones/resources/progressTracking: may be null/undefined
+ */
+router.post("/learning/manual", requireAuth, async (req: AuthRequest, res) => {
+  const b = req.body || {};
+  const missing: string[] = [];
+  if (!okString(b.job_title)) missing.push("job_title");
+  if (!okString(b.company_name)) missing.push("company_name");
+  if (!okString(b.plan_duration)) missing.push("plan_duration");
+  if (!okString(b.experience_level)) missing.push("experience_level");
+
+  if (missing.length) {
+    return res.status(400).json({
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Invalid request",
+        details: missing.map((k) => ({
+          code: "invalid_type",
+          expected: "string",
+          received: typeof b[k],
+          path: ["body", k],
+          message: "Required",
+        })),
+      },
+    });
+  }
+
+  try {
+    // Your hard requirement: exactly N days and exactly 3 tasks per day.
+    const N = intFromDuration(b.plan_duration);
+    const mainGap = (b.skill_gaps || "General").split(",")[0].trim() || "General";
+    const canonical = buildExactPlan(N, mainGap);
+
+    // We still try provider for metadata (optional)
+    let providerResp: any = null;
+    let extracted = { dailyPlan: undefined as string | undefined, weeklyMilestones: undefined as string | undefined, resources: undefined as string | undefined, progressTracking: undefined as string | undefined };
+    try {
+      providerResp = await createManualPlan(b);
+      extracted = extractOutput(providerResp);
+    } catch {
+      // ignore provider failures
+    }
+
+    // Force dailyPlan to the canonical 3-tasks-per-day array (stringified)
+    extracted.dailyPlan = JSON.stringify(canonical);
+
+    const user = await User.findById(req.user!.id).lean();
+    const userEmail = (user?.email || "").toLowerCase();
+    const created = await LearningPlan.create({
+      userId: req.user!.id,
+      userEmail,
+      kind: "manual",
+      request: b,
+      providerResponse: providerResp || { note: "canonical_plan_generated" },
+      providerJobId: providerResp?.id,
+      providerName: providerResp?.name,
+      status: "ready",
+      ...extracted,
+    });
+
+    return res.status(201).json({
+      id: created.id,
+      dailyPlan: extracted.dailyPlan,
+      // convenience plain array for any future consumer:
+      sup: canonical,
+      weeklyMilestones: extracted.weeklyMilestones ?? null,
+      resources: extracted.resources ?? null,
+      progressTracking: extracted.progressTracking ?? null,
+    });
+  } catch (err: any) {
+    console.error("Manual learning plan error", err);
+    const user = await User.findById(req.user!.id).lean();
+    const userEmail = (user?.email || "").toLowerCase();
+    const created = await LearningPlan.create({
+      userId: req.user!.id,
+      userEmail,
+      kind: "manual",
+      request: req.body,
+      status: "error",
+      errorMessage: err.message,
+    });
+    return res.status(502).json({
+      error: { code: "PROVIDER_ERROR", message: err.message },
+      id: created.id,
+    });
+  }
+});
+
 router.post("/learning/job-description", requireAuth, async (req: AuthRequest, res) => {
   try {
     const providerResp = await analyzeJobDescription(req.body);
@@ -237,7 +339,7 @@ router.get("/learning", requireAuth, async (req: AuthRequest, res) => {
     .sort({ createdAt: -1 })
     .limit(100);
   res.json({
-    items: docs.map((d) => ({
+    items: docs.map((d: any) => ({
       id: d.id,
       kind: d.kind,
       createdAt: d.createdAt,
