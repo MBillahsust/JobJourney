@@ -1,64 +1,22 @@
-
 import React, { useMemo, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "./ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Progress } from "./ui/progress";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "./ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Label } from "./ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "./ui/tabs";
-import {
-  Calendar,
-  Clock,
-  CheckCircle2,
-  Circle,
-  Code,
-  BookOpen,
-  Target,
-  Play,
-  Search,
-  Plus,
-  Bot,
-  Sparkles,
-  Users,
-  Building,
+  Calendar, Clock, CheckCircle2, Circle, Code, BookOpen, Target, Play,
+  Search, Plus, Bot, Sparkles, Users, Building
 } from "lucide-react";
 
-/** ---------- Types ---------- */
+/* ---------- Types ---------- */
 type PlanStatus =
-  | "In Progress"
-  | "Active"
-  | "On Track"
-  | "New"
-  | "Started"
-  | "Almost Complete"
-  | "Completed"
-  | "Not Started";
+  | "In Progress" | "Active" | "On Track" | "New" | "Started"
+  | "Almost Complete" | "Completed" | "Not Started";
 
 type UIPlan = {
   id: string;
@@ -74,222 +32,143 @@ type UIPlan = {
   totalHours: number;
 };
 
-type ManualPlanResponse = {
+type DayTask = {
   id: string;
-  dailyPlan?: string;
-  weeklyMilestones?: string;
+  type: string;
+  title: string;
+  duration: number;
+  completed: boolean;
+  gap: string;
   resources?: string;
-  progressTracking?: string;
 };
 
+type DayPlan = {
+  day: number;
+  date?: string;
+  completed?: boolean;
+  current?: boolean;
+  tasks: DayTask[];
+};
+
+type GeneratedPlan = {
+  durationDays: number;
+  days: DayPlan[];
+};
+
+type ManualPlanResponse = {
+  id: string;
+  dailyPlan?: string; // array-root string
+  weeklyMilestones?: string | null;
+  resources?: string | null;
+  progressTracking?: string | null;
+  // we also receive "sup" (array) but UI doesn't need it
+};
+
+/* ---------- Demo seed plans ---------- */
 const INITIAL_PLANS: UIPlan[] = [
-  {
-    id: "google-swe-plan",
-    name: "Google Software Engineer Plan",
-    company: "Google",
-    role: "Senior Software Engineer",
-    duration: "14 days",
-    progress: 45,
-    status: "In Progress",
-    created: "2024-10-15",
-    targetInterview: "2024-11-05",
-    skillsCount: 8,
-    totalHours: 32,
-  },
-  {
-    id: "meta-backend-plan",
-    name: "Meta Backend Engineer Plan",
-    company: "Meta",
-    role: "Backend Engineer",
-    duration: "12 days",
-    progress: 70,
-    status: "Active",
-    created: "2024-10-10",
-    targetInterview: "2024-10-28",
-    skillsCount: 6,
-    totalHours: 28,
-  },
-  {
-    id: "netflix-fullstack-plan",
-    name: "Netflix Full Stack Plan",
-    company: "Netflix",
-    role: "Full Stack Engineer",
-    duration: "16 days",
-    progress: 25,
-    status: "New",
-    created: "2024-10-20",
-    targetInterview: "2024-11-10",
-    skillsCount: 10,
-    totalHours: 40,
-  },
-  {
-    id: "stripe-frontend-plan",
-    name: "Stripe Frontend Developer Plan",
-    company: "Stripe",
-    role: "Senior Frontend Developer",
-    duration: "10 days",
-    progress: 90,
-    status: "Almost Complete",
-    created: "2024-10-05",
-    targetInterview: "2024-10-25",
-    skillsCount: 5,
-    totalHours: 24,
-  },
-  {
-    id: "amazon-sde-plan",
-    name: "Amazon SDE Plan",
-    company: "Amazon",
-    role: "Software Development Engineer",
-    duration: "18 days",
-    progress: 15,
-    status: "Started",
-    created: "2024-10-22",
-    targetInterview: "2024-11-15",
-    skillsCount: 12,
-    totalHours: 45,
-  },
-  {
-    id: "microsoft-cloud-plan",
-    name: "Microsoft Cloud Engineer Plan",
-    company: "Microsoft",
-    role: "Cloud Solutions Engineer",
-    duration: "14 days",
-    progress: 60,
-    status: "On Track",
-    created: "2024-10-12",
-    targetInterview: "2024-11-02",
-    skillsCount: 9,
-    totalHours: 36,
-  },
-  {
-    id: "tesla-swe-plan",
-    name: "Tesla Software Engineer Plan",
-    company: "Tesla",
-    role: "Software Engineer",
-    duration: "15 days",
-    progress: 35,
-    status: "In Progress",
-    created: "2024-10-18",
-    targetInterview: "2024-11-08",
-    skillsCount: 7,
-    totalHours: 30,
-  },
-  {
-    id: "spotify-data-plan",
-    name: "Spotify Data Engineer Plan",
-    company: "Spotify",
-    role: "Senior Data Engineer",
-    duration: "20 days",
-    progress: 0,
-    status: "Not Started",
-    created: "2024-10-23",
-    targetInterview: "2024-11-20",
-    skillsCount: 11,
-    totalHours: 50,
-  },
+  { id: "google-swe-plan", name: "Google Software Engineer Plan", company: "Google", role: "Senior Software Engineer", duration: "14 days", progress: 45, status: "In Progress", created: "2024-10-15", targetInterview: "2024-11-05", skillsCount: 8, totalHours: 32 },
+  { id: "meta-backend-plan", name: "Meta Backend Engineer Plan", company: "Meta", role: "Backend Engineer", duration: "12 days", progress: 70, status: "Active", created: "2024-10-10", targetInterview: "2024-10-28", skillsCount: 6, totalHours: 28 },
+  { id: "netflix-fullstack-plan", name: "Netflix Full Stack Plan", company: "Netflix", role: "Full Stack Engineer", duration: "16 days", progress: 25, status: "New", created: "2024-10-20", targetInterview: "2024-11-10", skillsCount: 10, totalHours: 40 },
+  { id: "stripe-frontend-plan", name: "Stripe Frontend Developer Plan", company: "Stripe", role: "Senior Frontend Developer", duration: "10 days", progress: 90, status: "Almost Complete", created: "2024-10-05", targetInterview: "2024-10-25", skillsCount: 5, totalHours: 24 },
+  { id: "amazon-sde-plan", name: "Amazon SDE Plan", company: "Amazon", role: "Software Development Engineer", duration: "18 days", progress: 15, status: "Started", created: "2024-10-22", targetInterview: "2024-11-15", skillsCount: 12, totalHours: 45 },
+  { id: "microsoft-cloud-plan", name: "Microsoft Cloud Engineer Plan", company: "Microsoft", role: "Cloud Solutions Engineer", duration: "14 days", progress: 60, status: "On Track", created: "2024-10-12", targetInterview: "2024-11-02", skillsCount: 9, totalHours: 36 },
+  { id: "tesla-swe-plan", name: "Tesla Software Engineer Plan", company: "Tesla", role: "Software Engineer", duration: "15 days", progress: 35, status: "In Progress", created: "2024-10-18", targetInterview: "2024-11-08", skillsCount: 7, totalHours: 30 },
+  { id: "spotify-data-plan", name: "Spotify Data Engineer Plan", company: "Spotify", role: "Senior Data Engineer", duration: "20 days", progress: 0, status: "Not Started", created: "2024-10-23", targetInterview: "2024-11-20", skillsCount: 11, totalHours: 50 },
 ];
 
-/** ---------- Helpers: get token from storage/cookies ---------- */
+/* ---------- Helpers: token & URLs ---------- */
 function readCookie(name: string) {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
   return match ? decodeURIComponent(match[2]) : null;
 }
 function getToken(): string | null {
-  // common keys used by apps
   const fromLS =
     (typeof localStorage !== "undefined" &&
       (localStorage.getItem("token") ||
-        localStorage.getItem("accessToken") ||
-        localStorage.getItem("access_token") ||
-        localStorage.getItem("jwt") ||
-        localStorage.getItem("idToken"))) ||
+       localStorage.getItem("accessToken") ||
+       localStorage.getItem("access_token") ||
+       localStorage.getItem("jwt") ||
+       localStorage.getItem("idToken"))) ||
     null;
-
   const fromCookie =
     readCookie("token") ||
     readCookie("accessToken") ||
     readCookie("access_token") ||
     readCookie("jwt") ||
     readCookie("idToken");
-
   return (fromLS || fromCookie || "").trim() || null;
 }
+function computeApiRoot(raw?: string): string {
+  const base = (raw || "").replace(/\/+$/, "");
+  if (!base) return "/v1";
+  if (base.endsWith("/v1")) return base;
+  return `${base}/v1`;
+}
+function apiJoin(root: string, path: string) {
+  return `${root.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
+}
 
-/** ---------- Component ---------- */
+/* ---------- Parser (array-root only) ---------- */
+function parseDailyPlanToGeneratedPlan(dailyPlanText?: string): GeneratedPlan {
+  if (dailyPlanText) {
+    try {
+      const arr = JSON.parse(dailyPlanText);
+      if (Array.isArray(arr)) {
+        const days: DayPlan[] = arr.map((d: any, i: number) => ({
+          day: Number(d.day ?? i + 1),
+          completed: false,
+          current: i === 0,
+          tasks: (d.tasks || []).slice(0, 3).map((t: any, j: number): DayTask => ({
+            id: `${i + 1}-${j + 1}`,
+            type: String(t.type ?? "review"),
+            title: String(t.title ?? `Task ${j + 1}`),
+            duration: Number(t.duration ?? 30),
+            completed: false,
+            gap: String(t.gap ?? "General"),
+            resources: t.resources ? String(t.resources) : undefined,
+          })),
+        }));
+        return { durationDays: days.length, days };
+      }
+    } catch {
+      // fall through
+    }
+  }
+  return { durationDays: 0, days: [] };
+}
+
+/* ---------- Component ---------- */
 export function PrepPlan() {
   const [prepPlans, setPrepPlans] = useState<UIPlan[]>(INITIAL_PLANS);
   const [selectedPlan, setSelectedPlan] = useState<string>("google-swe-plan");
-  const [selectedDay, setSelectedDay] = useState(1);
+
+  // Generated plan data per plan id
+  const [generatedPlans, setGeneratedPlans] = useState<Record<string, GeneratedPlan>>({});
+  const [dayIndexByPlan, setDayIndexByPlan] = useState<Record<string, number>>({});
+
   const [searchTerm, setSearchTerm] = useState("");
   const [aiAgentOpen, setAiAgentOpen] = useState(false);
 
+  // exact backend fields (all strings)
   const [newPlanForm, setNewPlanForm] = useState({
-    jobTitle: "",
-    company: "",
-    targetDate: "", // optional; may be left blank
-    days: "",
-    skillGaps: "",
-    experience: "",
-    priority: "",
+    job_title: "",
+    company_name: "",
+    plan_duration: "",       // e.g. "14 days"
+    experience_level: "",    // e.g. "Experienced"
+    focus_areas: "",
+    skill_gaps: "",
   });
+
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Backend base URL: use Vite env if present, otherwise same-origin
-  const API_BASE = useMemo(
-    () =>
-      (import.meta as any)?.env?.VITE_API_BASE_URL?.replace(/\/+$/, "") || "",
+  const API_ROOT = useMemo(
+    () => computeApiRoot((import.meta as any)?.env?.VITE_API_BASE_URL),
     []
   );
 
-  const weeklyStats = {
-    totalHours: 10,
-    completedHours: 7.5,
-    tasksCompleted: 12,
-    totalTasks: 18,
-  };
-
-  const dailyPlans = [
-    {
-      day: 1,
-      date: "Mon, Oct 21",
-      completed: true,
-      tasks: [
-        { id: 1, type: "coding", title: "Two Pointers - Easy Problems", duration: 45, completed: true, gap: "Array Manipulation" },
-        { id: 2, type: "system", title: "Load Balancer Basics", duration: 30, completed: true, gap: "System Design" },
-        { id: 3, type: "review", title: "Big O Notation Review", duration: 15, completed: true, gap: "CS Fundamentals" },
-      ],
-    },
-    {
-      day: 2,
-      date: "Tue, Oct 22",
-      completed: false,
-      current: true,
-      tasks: [
-        { id: 4, type: "coding", title: "Binary Search Practice", duration: 45, completed: false, gap: "Search Algorithms" },
-        { id: 5, type: "system", title: "Database Sharding", duration: 30, completed: false, gap: "System Design" },
-        { id: 6, type: "review", title: "Kubernetes Fundamentals", duration: 20, completed: false, gap: "Container Orchestration" },
-      ],
-    },
-    {
-      day: 3,
-      date: "Wed, Oct 23",
-      completed: false,
-      tasks: [
-        { id: 7, type: "coding", title: "Tree Traversal Problems", duration: 50, completed: false, gap: "Data Structures" },
-        { id: 8, type: "behavioral", title: "STAR Method Practice", duration: 25, completed: false, gap: "Interview Skills" },
-        { id: 9, type: "review", title: "GraphQL Query Optimization", duration: 20, completed: false, gap: "API Design" },
-      ],
-    },
-  ];
-
-  const gapProgress = [
-    { gap: "Kubernetes", progress: 35, target: "Week 2", priority: "High" },
-    { gap: "GraphQL", progress: 60, target: "Week 1", priority: "Medium" },
-    { gap: "System Design", progress: 75, target: "Ongoing", priority: "High" },
-    { gap: "Microservices", progress: 20, target: "Week 3", priority: "Medium" },
-  ];
+  const weeklyStats = { totalHours: 10, completedHours: 7.5, tasksCompleted: 12, totalTasks: 18 };
 
   const filteredPlans = prepPlans.filter(
     (plan) =>
@@ -298,9 +177,7 @@ export function PrepPlan() {
       plan.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const currentPlan = dailyPlans[selectedDay - 1];
-
-  const getStatusColor = (status: PlanStatus) => {
+  function getStatusColor(status: PlanStatus) {
     switch (status) {
       case "Completed":
       case "Almost Complete":
@@ -316,38 +193,49 @@ export function PrepPlan() {
       default:
         return "bg-gray-100 text-gray-800";
     }
-  };
-
-  const getProgressColor = (progress: number) => {
+  }
+  function getProgressColor(progress: number) {
     if (progress >= 80) return "text-green-600";
     if (progress >= 50) return "text-blue-600";
     if (progress >= 25) return "text-yellow-600";
     return "text-red-600";
-  };
+  }
 
-  /** -------- Generate plan: calls POST /v1/learning/manual -------- */
+  // toggle manual completion
+  function toggleTaskCompletion(planId: string, dayIdx: number, taskId: string) {
+    setGeneratedPlans((prev) => {
+      const plan = prev[planId];
+      if (!plan) return prev;
+      const newDays = plan.days.map((d, i) =>
+        i === dayIdx ? { ...d, tasks: d.tasks.map((t) => (t.id === taskId ? { ...t, completed: !t.completed } : t)) } : d
+      );
+      return { ...prev, [planId]: { ...plan, days: newDays } };
+    });
+  }
+
+  /* ------ Create Plan ------ */
   const onGeneratePlan = async () => {
     setFormError(null);
 
-    if (!newPlanForm.jobTitle.trim()) return setFormError("Please enter a job title.");
-    if (!newPlanForm.company.trim()) return setFormError("Please enter a company.");
-    if (!newPlanForm.days || !/^\d+$/.test(newPlanForm.days)) return setFormError("Please enter plan duration in days (numbers only).");
-    if (!newPlanForm.experience) return setFormError("Please choose an experience level.");
+    if (!newPlanForm.job_title.trim()) return setFormError("Please enter a job title.");
+    if (!newPlanForm.company_name.trim()) return setFormError("Please enter a company.");
+    if (!newPlanForm.plan_duration.trim()) return setFormError('Please enter plan duration like "14 days".');
+    if (!newPlanForm.experience_level.trim()) return setFormError("Please enter experience level.");
 
     const payload = {
-      job_title: newPlanForm.jobTitle.trim(),
-      company_name: newPlanForm.company.trim(),
-      plan_duration: String(newPlanForm.days).trim(),
-      experience_level: newPlanForm.experience,
-      focus_areas: newPlanForm.priority || undefined,
-      skill_gaps: newPlanForm.skillGaps || undefined,
+      job_title: newPlanForm.job_title.trim(),
+      company_name: newPlanForm.company_name.trim(),
+      plan_duration: newPlanForm.plan_duration.trim(),     // "14 days" etc.
+      experience_level: newPlanForm.experience_level.trim(),
+      focus_areas: newPlanForm.focus_areas.trim() || undefined,
+      skill_gaps: newPlanForm.skill_gaps.trim() || undefined,
     };
 
     const token = getToken();
-
     setSubmitting(true);
     try {
-      const resp = await fetch(`${API_BASE}/v1/learning/manual`, {
+      const url = apiJoin(API_ROOT, "/learning/manual");
+      const resp = await fetch(url, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -357,46 +245,56 @@ export function PrepPlan() {
         body: JSON.stringify(payload),
       });
 
+      const maybeErr = !resp.ok ? await resp.json().catch(() => null) : null;
       if (!resp.ok) {
-        // Prefer server's JSON error payload
-        const errJson = await resp.json().catch(() => null);
-        if (resp.status === 401) {
-          throw new Error(errJson?.error?.message || "Unauthorized: missing or invalid token");
-        }
-        throw new Error(errJson?.error?.message || `Request failed: ${resp.status}`);
+        throw new Error(maybeErr?.error?.message || `Request failed: ${resp.status}`);
       }
 
-      const data = (await resp.json()) as ManualPlanResponse;
+      const data = (await resp.json()) as ManualPlanResponse & { sup?: any[] };
 
+      // build UI card
       const newId = data.id || `plan-${Date.now()}`;
-      const niceName = `${newPlanForm.company} ${newPlanForm.jobTitle} Plan`;
+      const niceName = `${payload.company_name} ${payload.job_title} Plan`;
 
       const newUiPlan: UIPlan = {
         id: newId,
         name: niceName,
-        company: newPlanForm.company,
-        role: newPlanForm.jobTitle,
-        duration: `${newPlanForm.days} days`,
+        company: payload.company_name,
+        role: payload.job_title,
+        duration: payload.plan_duration,
         progress: 0,
         status: "New",
         created: new Date().toISOString().slice(0, 10),
-        targetInterview: newPlanForm.targetDate,
+        targetInterview: "",
         skillsCount: 0,
         totalHours: 0,
       };
 
+      // parse dailyPlan (array-root string) — guaranteed N days × 3 tasks by backend
+      const parsed = parseDailyPlanToGeneratedPlan(data.dailyPlan);
+      const normalized: GeneratedPlan = {
+        durationDays: parsed.durationDays,
+        days: parsed.days.map((d, i) => ({
+          ...d,
+          current: i === 0,
+          completed: false,
+          tasks: d.tasks.map((t) => ({ ...t, completed: false })),
+        })),
+      };
+
       setPrepPlans((prev) => [newUiPlan, ...prev]);
-      setSelectedPlan(newUiPlan.id);
+      setGeneratedPlans((prev) => ({ ...prev, [newId]: normalized }));
+      setDayIndexByPlan((prev) => ({ ...prev, [newId]: 0 }));
+      setSelectedPlan(newId);
       setAiAgentOpen(false);
 
       setNewPlanForm({
-        jobTitle: "",
-        company: "",
-        targetDate: "",
-        days: "",
-        skillGaps: "",
-        experience: "",
-        priority: "",
+        job_title: "",
+        company_name: "",
+        plan_duration: "",
+        experience_level: "",
+        focus_areas: "",
+        skill_gaps: "",
       });
     } catch (e: any) {
       setFormError(e?.message || "Failed to generate plan.");
@@ -405,24 +303,37 @@ export function PrepPlan() {
     }
   };
 
+  // Icons/colors
+  const taskIcon = (type: string) => {
+    const t = type.toLowerCase();
+    if (t.includes("coding")) return <Code className="h-4 w-4" />;
+    if (t.includes("system")) return <Target className="h-4 w-4" />;
+    if (t.includes("behavior")) return <Users className="h-4 w-4" />;
+    if (t.includes("practice")) return <Play className="h-4 w-4" />;
+    return <BookOpen className="h-4 w-4" />;
+  };
+  const taskColor = (type: string) => {
+    const t = type.toLowerCase();
+    if (t.includes("coding")) return "bg-blue-100 text-blue-600";
+    if (t.includes("system")) return "bg-purple-100 text-purple-600";
+    if (t.includes("behavior")) return "bg-orange-100 text-orange-600";
+    if (t.includes("practice")) return "bg-green-100 text-green-600";
+    return "bg-gray-100 text-gray-600";
+  };
+
   return (
     <div className="h-full overflow-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">My Plans</h1>
-          <p className="text-muted-foreground">
-            Personalized learning schedules to close your skill gaps
-          </p>
+          <p className="text-muted-foreground">Personalized learning schedules to close your skill gaps</p>
         </div>
         <div className="flex gap-2">
           <Dialog open={aiAgentOpen} onOpenChange={setAiAgentOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add New Plan
-              </Button>
+              <Button className="gap-2"><Plus className="h-4 w-4" />Add New Plan</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
+            <DialogContent className="sm:max-w-[640px]">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Bot className="h-5 w-5 text-primary" />
@@ -437,108 +348,74 @@ export function PrepPlan() {
                     <span className="font-medium text-primary">AI Assistant</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    I&apos;ll create a personalized 14-day preparation plan based on your target job and current skills.
-                    Let me gather some information about your goals.
+                    I&apos;ll create a personalized plan. Exactly N days & 3 tasks/day.
                   </p>
                 </div>
 
                 {formError && (
-                  <div className="text-sm text-red-600 border border-red-200 rounded-md p-2 bg-red-50">
-                    {formError}
-                  </div>
+                  <div className="text-sm text-red-600 border border-red-200 rounded-md p-2 bg-red-50">{formError}</div>
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Job Title</Label>
                     <Input
-                      placeholder="e.g., Senior Software Engineer"
-                      value={newPlanForm.jobTitle}
-                      onChange={(e) => setNewPlanForm({ ...newPlanForm, jobTitle: e.target.value })}
+                      placeholder="e.g., Networking Engineer"
+                      value={newPlanForm.job_title}
+                      onChange={(e) => setNewPlanForm({ ...newPlanForm, job_title: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Company</Label>
                     <Input
-                      placeholder="e.g., Google"
-                      value={newPlanForm.company}
-                      onChange={(e) => setNewPlanForm({ ...newPlanForm, company: e.target.value })}
+                      placeholder="e.g., Facebook"
+                      value={newPlanForm.company_name}
+                      onChange={(e) => setNewPlanForm({ ...newPlanForm, company_name: e.target.value })}
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Target Interview Date</Label>
+                    <Label>Plan Duration</Label>
                     <Input
-                      type="date"
-                      value={newPlanForm.targetDate}
-                      onChange={(e) => setNewPlanForm({ ...newPlanForm, targetDate: e.target.value })}
+                      placeholder='e.g., 14 days'
+                      value={newPlanForm.plan_duration}
+                      onChange={(e) => setNewPlanForm({ ...newPlanForm, plan_duration: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Experience Level</Label>
-                    <Select
-                      value={newPlanForm.experience}
-                      onValueChange={(value: string) => setNewPlanForm({ ...newPlanForm, experience: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select experience" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="junior">Junior (0-2 years)</SelectItem>
-                        <SelectItem value="mid">Mid-level (2-5 years)</SelectItem>
-                        <SelectItem value="senior">Senior (5-8 years)</SelectItem>
-                        <SelectItem value="lead">Lead (8+ years)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      placeholder='e.g., Experienced'
+                      value={newPlanForm.experience_level}
+                      onChange={(e) => setNewPlanForm({ ...newPlanForm, experience_level: e.target.value })}
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Plan Duration (Days)</Label>
+                    <Label>Priority / Focus Areas</Label>
                     <Input
-                      type="number"
-                      min={1}
-                      placeholder="e.g., 14"
-                      value={newPlanForm.days}
-                      onChange={(e) => setNewPlanForm({ ...newPlanForm, days: e.target.value })}
+                      placeholder='e.g., software engineer'
+                      value={newPlanForm.focus_areas}
+                      onChange={(e) => setNewPlanForm({ ...newPlanForm, focus_areas: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Known Skill Gaps</Label>
+                    <Textarea
+                      placeholder='e.g., CSS'
+                      value={newPlanForm.skill_gaps}
+                      onChange={(e) => setNewPlanForm({ ...newPlanForm, skill_gaps: e.target.value })}
+                      className="min-h-[40px]"
                     />
                   </div>
                 </div>
-
-                <div className="space-y-2">
-                  <Label>Priority Focus Area</Label>
-                  <Select
-                    value={newPlanForm.priority}
-                    onValueChange={(value: string) => setNewPlanForm({ ...newPlanForm, priority: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="What do you want to focus on most?" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="coding">Coding & Algorithms</SelectItem>
-                      <SelectItem value="system-design">System Design</SelectItem>
-                      <SelectItem value="behavioral">Behavioral Interviews</SelectItem>
-                      <SelectItem value="technical-skills">Technical Skills</SelectItem>
-                      <SelectItem value="comprehensive">Comprehensive Prep</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Known Skill Gaps</Label>
-                  <Textarea
-                    placeholder="Describe areas you want to improve (e.g., Kubernetes, System Design, GraphQL, etc.)"
-                    value={newPlanForm.skillGaps}
-                    onChange={(e) => setNewPlanForm({ ...newPlanForm, skillGaps: e.target.value })}
-                    className="min-h-[80px]"
-                  />
-                </div>
               </div>
 
-              <div className="flex justify-between gap-2 pt-4">
+              <div className="flex justify-between gap-2 pt-2">
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -572,6 +449,14 @@ export function PrepPlan() {
       <div className="space-y-3">
         {filteredPlans.map((plan) => {
           const isSelected = selectedPlan === plan.id;
+          const gen = generatedPlans[plan.id];
+          const days = gen?.days || [];
+          const dayIdx = dayIndexByPlan[plan.id] ?? 0;
+          const currentDay = days.length ? days[Math.min(Math.max(dayIdx, 0), days.length - 1)] : undefined;
+          const dayProgress = currentDay
+            ? Math.round((currentDay.tasks.filter((t) => t.completed).length / currentDay.tasks.length) * 100)
+            : 0;
+
           return (
             <div key={plan.id}>
               <Card
@@ -582,8 +467,7 @@ export function PrepPlan() {
                   <div className="min-w-[240px]">
                     <p className="font-medium leading-tight">{plan.name}</p>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Building className="h-3 w-3" />
-                      <span>{plan.company}</span>
+                      <Building className="h-3 w-3" /><span>{plan.company}</span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">{plan.role}</p>
                   </div>
@@ -617,14 +501,12 @@ export function PrepPlan() {
 
                   <div className="ml-auto flex items-center gap-3">
                     <Badge className={getStatusColor(plan.status)}>{plan.status}</Badge>
-                    <Button variant="ghost" size="sm">
-                      {isSelected ? "Hide" : "View"}
-                    </Button>
+                    <Button variant="ghost" size="sm">{isSelected ? "Hide" : "View"}</Button>
                   </div>
                 </CardContent>
               </Card>
 
-              {isSelected && (
+              {isSelected && gen && (
                 <div className="mt-3 mb-10">
                   <Card className="mb-4">
                     <CardHeader className="py-4">
@@ -639,9 +521,7 @@ export function PrepPlan() {
                           <Badge className={getStatusColor(plan.status)}>{plan.status}</Badge>
                           <div className="text-right">
                             <p className="text-xs text-muted-foreground">Target Interview</p>
-                            <p className="font-medium text-sm">
-                              {plan.targetInterview ? new Date(plan.targetInterview).toLocaleDateString() : "-"}
-                            </p>
+                            <p className="font-medium text-sm">{plan.targetInterview ? new Date(plan.targetInterview).toLocaleDateString() : "-"}</p>
                           </div>
                         </div>
                       </div>
@@ -652,14 +532,10 @@ export function PrepPlan() {
                     <Card>
                       <CardContent className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-blue-100 rounded-lg">
-                            <Clock className="h-4 w-4 text-blue-600" />
-                          </div>
+                          <div className="p-2 bg-blue-100 rounded-lg"><Clock className="h-4 w-4 text-blue-600" /></div>
                           <div>
                             <p className="text-xs text-muted-foreground">Weekly Progress</p>
-                            <p className="text-lg font-semibold">
-                              {weeklyStats.completedHours}/{weeklyStats.totalHours}h
-                            </p>
+                            <p className="text-lg font-semibold">{weeklyStats.completedHours}/{weeklyStats.totalHours}h</p>
                           </div>
                         </div>
                       </CardContent>
@@ -667,14 +543,10 @@ export function PrepPlan() {
                     <Card>
                       <CardContent className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-green-100 rounded-lg">
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
-                          </div>
+                          <div className="p-2 bg-green-100 rounded-lg"><CheckCircle2 className="h-4 w-4 text-green-600" /></div>
                           <div>
                             <p className="text-xs text-muted-foreground">Tasks Done</p>
-                            <p className="text-lg font-semibold">
-                              {weeklyStats.tasksCompleted}/{weeklyStats.totalTasks}
-                            </p>
+                            <p className="text-lg font-semibold">{weeklyStats.tasksCompleted}/{weeklyStats.totalTasks}</p>
                           </div>
                         </div>
                       </CardContent>
@@ -682,14 +554,10 @@ export function PrepPlan() {
                     <Card>
                       <CardContent className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-purple-100 rounded-lg">
-                            <Target className="h-4 w-4 text-purple-600" />
-                          </div>
+                          <div className="p-2 bg-purple-100 rounded-lg"><Target className="h-4 w-4 text-purple-600" /></div>
                           <div>
                             <p className="text-xs text-muted-foreground">Completion</p>
-                            <p className="text-lg font-semibold">
-                              {Math.round((weeklyStats.tasksCompleted / weeklyStats.totalTasks) * 100)}%
-                            </p>
+                            <p className="text-lg font-semibold">{Math.round((weeklyStats.tasksCompleted / weeklyStats.totalTasks) * 100)}%</p>
                           </div>
                         </div>
                       </CardContent>
@@ -705,6 +573,7 @@ export function PrepPlan() {
 
                     <TabsContent value="daily" className="space-y-4">
                       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        {/* Days list */}
                         <Card>
                           <CardHeader>
                             <CardTitle className="flex items-center gap-2">
@@ -713,119 +582,89 @@ export function PrepPlan() {
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-2">
-                            {dailyPlans.map((d) => (
+                            {gen.days.map((d, idx) => (
                               <button
-                                key={d.day}
+                                key={d.day ?? idx + 1}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setSelectedDay(d.day);
+                                  setDayIndexByPlan((prev) => ({ ...prev, [plan.id]: idx }));
                                 }}
                                 className={`w-full p-3 rounded-lg border text-left transition-colors ${
-                                  selectedDay === d.day
+                                  idx === (dayIndexByPlan[plan.id] ?? 0)
                                     ? "bg-primary text-primary-foreground border-primary"
                                     : "hover:bg-muted"
                                 }`}
                               >
                                 <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-medium">Day {d.day}</span>
+                                  <span className="font-medium">Day {d.day ?? idx + 1}</span>
                                   {d.completed && <CheckCircle2 className="h-4 w-4 text-green-600" />}
-                                  {d.current && <div className="h-2 w-2 bg-orange-500 rounded-full" />}
+                                  {d.current && !d.completed && <div className="h-2 w-2 bg-orange-500 rounded-full" />}
                                 </div>
-                                <p className="text-xs opacity-70">{d.date}</p>
+                                <p className="text-xs opacity-70">{d.date || ""}</p>
                               </button>
                             ))}
                           </CardContent>
                         </Card>
 
+                        {/* Day detail */}
                         <Card className="lg:col-span-3">
                           <CardHeader>
                             <div className="flex items-center justify-between">
                               <CardTitle>
-                                Day {currentPlan.day} - {currentPlan.date}
+                                Day {currentDay?.day ?? (dayIndexByPlan[plan.id] ?? 0) + 1}
+                                {currentDay?.date ? ` - ${currentDay.date}` : ""}
                               </CardTitle>
                               <div className="flex items-center gap-2">
-                                {currentPlan.current && <Badge variant="secondary">Today</Badge>}
-                                {currentPlan.completed && (
-                                  <Badge variant="default" className="bg-green-600">
-                                    Completed
-                                  </Badge>
+                                {currentDay?.current && <Badge variant="secondary">Today</Badge>}
+                                {currentDay && currentDay.tasks.every((t) => t.completed) && (
+                                  <Badge variant="default" className="bg-green-600">Completed</Badge>
                                 )}
                               </div>
                             </div>
                           </CardHeader>
                           <CardContent className="space-y-4">
-                            {currentPlan.tasks.map((task) => {
-                              const getTaskIcon = (type: string) => {
-                                switch (type) {
-                                  case "coding":
-                                    return <Code className="h-4 w-4" />;
-                                  case "system":
-                                    return <Target className="h-4 w-4" />;
-                                  case "behavioral":
-                                    return <Users className="h-4 w-4" />;
-                                  default:
-                                    return <BookOpen className="h-4 w-4" />;
-                                }
-                              };
-                              const getTaskColor = (type: string) => {
-                                switch (type) {
-                                  case "coding":
-                                    return "bg-blue-100 text-blue-600";
-                                  case "system":
-                                    return "bg-purple-100 text-purple-600";
-                                  case "behavioral":
-                                    return "bg-orange-100 text-orange-600";
-                                  default:
-                                    return "bg-gray-100 text-gray-600";
-                                }
-                              };
-                              return (
-                                <div key={task.id} className="p-4 border rounded-lg space-y-3">
-                                  <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-lg ${getTaskColor(task.type)}`}>{getTaskIcon(task.type)}</div>
-                                    <div className="flex-1">
-                                      <h4 className={`font-medium ${task.completed ? "line-through text-muted-foreground" : ""}`}>
-                                        {task.title}
-                                      </h4>
-                                      <p className="text-sm text-muted-foreground">
-                                        {task.duration} minutes • Closes "{task.gap}" gap
-                                      </p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      {task.completed ? (
-                                        <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                      ) : (
-                                        <Circle className="h-5 w-5 text-muted-foreground" />
-                                      )}
-                                    </div>
+                            {currentDay?.tasks.map((task) => (
+                              <div key={task.id} className="p-4 border rounded-lg space-y-3">
+                                <div className="flex items-center gap-3">
+                                  <div className={`p-2 rounded-lg ${taskColor(task.type)}`}>{taskIcon(task.type)}</div>
+                                  <div className="flex-1">
+                                    <h4 className={`font-medium ${task.completed ? "line-through text-muted-foreground" : ""}`}>
+                                      {task.title}
+                                    </h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      {task.duration} minutes • Closes "{task.gap || "General"}" gap
+                                      {task.resources ? <> • <a className="underline" href={task.resources} target="_blank" rel="noreferrer">Resource</a></> : null}
+                                    </p>
                                   </div>
-                                  {!task.completed && (
-                                    <div className="flex gap-2">
-                                      <Button size="sm" className="gap-2">
-                                        <Play className="h-4 w-4" />
-                                        Start Task
-                                      </Button>
-                                      <Button size="sm" variant="outline">
-                                        View Resources
-                                      </Button>
-                                    </div>
-                                  )}
+                                  <div className="flex items-center gap-2">
+                                    {task.completed ? (
+                                      <CheckCircle2 className="h-5 w-5 text-green-600 cursor-pointer"
+                                        onClick={() => toggleTaskCompletion(plan.id, dayIndexByPlan[plan.id] ?? 0, task.id)} />
+                                    ) : (
+                                      <Circle className="h-5 w-5 text-muted-foreground cursor-pointer"
+                                        onClick={() => toggleTaskCompletion(plan.id, dayIndexByPlan[plan.id] ?? 0, task.id)} />
+                                    )}
+                                  </div>
                                 </div>
-                              );
-                            })}
+                                {!task.completed && (
+                                  <div className="flex gap-2">
+                                    <Button size="sm" className="gap-2"><Play className="h-4 w-4" />Start Task</Button>
+                                    {task.resources && (
+                                      <Button size="sm" variant="outline" asChild>
+                                        <a href={task.resources} target="_blank" rel="noreferrer">View Resource</a>
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+
                             <div className="pt-4 border-t">
                               <div className="flex items-center justify-between text-sm">
                                 <span>Daily Progress</span>
-                                <span>
-                                  {currentPlan.tasks.filter((t) => t.completed).length}/{currentPlan.tasks.length} tasks
-                                </span>
+                                <span>{currentDay?.tasks.filter((t) => t.completed).length ?? 0}/{currentDay?.tasks.length ?? 0} tasks</span>
                               </div>
-                              <Progress
-                                value={
-                                  (currentPlan.tasks.filter((t) => t.completed).length / currentPlan.tasks.length) * 100
-                                }
-                                className="mt-2"
-                              />
+                              <Progress value={dayProgress} className="mt-2" />
                             </div>
                           </CardContent>
                         </Card>
@@ -834,25 +673,21 @@ export function PrepPlan() {
 
                     <TabsContent value="gaps" className="space-y-4">
                       <Card>
-                        <CardHeader>
-                          <CardTitle>Skill Gap Progress</CardTitle>
-                        </CardHeader>
+                        <CardHeader><CardTitle>Skill Gap Progress</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
-                          {gapProgress.map((g, idx) => (
-                            <div key={idx} className="space-y-3">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <h4 className="font-medium">{g.gap}</h4>
-                                  <p className="text-sm text-muted-foreground">Target: {g.target}</p>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <Badge variant={g.priority === "High" ? "destructive" : "secondary"}>{g.priority}</Badge>
-                                  <span className="text-sm font-medium">{g.progress}%</span>
-                                </div>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="font-medium">CSS</h4>
+                                <p className="text-sm text-muted-foreground">Target: Week 1–3</p>
                               </div>
-                              <Progress value={g.progress} className="h-2" />
+                              <div className="flex items-center gap-3">
+                                <Badge variant="destructive">High</Badge>
+                                <span className="text-sm font-medium">0%</span>
+                              </div>
                             </div>
-                          ))}
+                            <Progress value={0} className="h-2" />
+                          </div>
                         </CardContent>
                       </Card>
                     </TabsContent>
@@ -860,44 +695,32 @@ export function PrepPlan() {
                     <TabsContent value="resources" className="space-y-4">
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <Card>
-                          <CardHeader>
-                            <CardTitle>Coding Practice</CardTitle>
-                          </CardHeader>
+                          <CardHeader><CardTitle>Coding Practice</CardTitle></CardHeader>
                           <CardContent className="space-y-3">
                             <div className="p-3 border rounded-lg">
                               <h4 className="font-medium">LeetCode Patterns</h4>
                               <p className="text-sm text-muted-foreground">Curated problems by pattern</p>
-                              <Button size="sm" variant="outline" className="mt-2">
-                                Open Resource
-                              </Button>
+                              <Button size="sm" variant="outline" className="mt-2">Open Resource</Button>
                             </div>
                             <div className="p-3 border rounded-lg">
                               <h4 className="font-medium">System Design Primer</h4>
                               <p className="text-sm text-muted-foreground">Comprehensive guide</p>
-                              <Button size="sm" variant="outline" className="mt-2">
-                                Open Resource
-                              </Button>
+                              <Button size="sm" variant="outline" className="mt-2">Open Resource</Button>
                             </div>
                           </CardContent>
                         </Card>
                         <Card>
-                          <CardHeader>
-                            <CardTitle>Learning Materials</CardTitle>
-                          </CardHeader>
+                          <CardHeader><CardTitle>Learning Materials</CardTitle></CardHeader>
                           <CardContent className="space-y-3">
                             <div className="p-3 border rounded-lg">
                               <h4 className="font-medium">Kubernetes Documentation</h4>
                               <p className="text-sm text-muted-foreground">Official K8s docs</p>
-                              <Button size="sm" variant="outline" className="mt-2">
-                                Open Resource
-                              </Button>
+                              <Button size="sm" variant="outline" className="mt-2">Open Resource</Button>
                             </div>
                             <div className="p-3 border rounded-lg">
                               <h4 className="font-medium">GraphQL Best Practices</h4>
                               <p className="text-sm text-muted-foreground">Implementation guide</p>
-                              <Button size="sm" variant="outline" className="mt-2">
-                                Open Resource
-                              </Button>
+                              <Button size="sm" variant="outline" className="mt-2">Open Resource</Button>
                             </div>
                           </CardContent>
                         </Card>

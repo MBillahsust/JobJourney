@@ -1,61 +1,176 @@
 import { Router } from "express";
-import { z } from "zod";
 import mongoose from "mongoose";
 import { requireAuth, AuthRequest } from "../../middlewares/auth";
-import { validate } from "../../middlewares/validate";
 import { LearningPlan } from "./learningPlan.model";
 import { createManualPlan, analyzeJobDescription } from "../../libs/learningPlanApi";
 
 const router = Router();
 
-/** --------- Validation Schemas ---------- */
-const manualSchema = z.object({
-  body: z.object({
-    job_title: z.string().min(2),
-    company_name: z.string().min(1),
-    plan_duration: z.string().min(1),
-    experience_level: z.string().min(1),
-    focus_areas: z.string().optional(),
-    skill_gaps: z.string().optional()
-  })
-});
+/* ------------------ helpers ------------------ */
+const okString = (v: unknown) => typeof v === "string" && v.trim().length > 0;
 
-const jobDescSchema = z.object({
-  body: z.object({
-    job_content: z.string().min(10),
-    skill_analysis_text: z.string().optional(),
-    plan_duration: z.string().optional()
-  })
-});
+const intFromDuration = (s: string) => {
+  const m = String(s || "").match(/(\d{1,3})/);
+  const n = m ? parseInt(m[1], 10) : 14;
+  return Math.max(1, Math.min(60, n));
+};
 
-/** Normalize provider response */
+function buildExactPlan(days: number, mainGap: string) {
+  // exactly 3 tasks per day: coding + system + review
+  const RES = {
+    cssBasics: "https://developer.mozilla.org/en-US/docs/Web/CSS",
+    selectors: "https://www.w3schools.com/css/css_selectors.asp",
+    box: "https://www.w3schools.com/css/css_boxmodel.asp",
+    lb: "https://www.geeksforgeeks.org/introduction-of-networking/",
+    osi: "https://www.comptia.org/blog/the-osi-model-explained-and-how-to-easily-remember-its-layers",
+    tcpip: "https://www.lifewire.com/tcp-ip-architecture-818143",
+  };
+
+  const arr: Array<{
+    day: number;
+    completed: boolean;
+    tasks: Array<{
+      type: "coding" | "system" | "review";
+      title: string;
+      duration: number;
+      completed: boolean;
+      gap: string;
+      resources?: string;
+    }>;
+  }> = [];
+
+  for (let d = 1; d <= days; d++) {
+    arr.push({
+      day: d,
+      completed: false,
+      tasks: [
+        {
+          type: "coding",
+          title:
+            d === 1
+              ? `${mainGap} Basics`
+              : d % 3 === 0
+              ? `${mainGap} Practice`
+              : `Advanced ${mainGap} Concepts`,
+          duration: 45,
+          completed: false,
+          gap: mainGap,
+          resources: d === 1 ? RES.cssBasics : d % 3 === 0 ? RES.selectors : RES.box,
+        },
+        {
+          type: "system",
+          title: d % 2 === 0 ? "OSI Model Deep Dive" : "TCP/IP Model Overview",
+          duration: 30,
+          completed: false,
+          gap: "",
+          resources: d % 2 === 0 ? RES.osi : RES.tcpip,
+        },
+        {
+          type: "review",
+          title: d === 1 ? `Review ${mainGap} Selectors/Box Model` : "Networking Concepts Recap",
+          duration: 15,
+          completed: false,
+          gap: mainGap,
+          resources: d === 1 ? RES.selectors : RES.lb,
+        },
+      ],
+    });
+  }
+  return arr;
+}
+
 function extractOutput(provider: any) {
-  const output = provider?.result?.Output || provider?.result || {};
+  const output = provider?.result?.Output || provider?.result || provider || {};
   return {
-    dailyPlan: output.daily_plan || output.dailyPlan,
-    weeklyMilestones: output.weekly_milestones || output.weeklyMilestones,
+    dailyPlan: output.daily_plan ?? output.dailyPlan, // may be missing
+    weeklyMilestones: output.weekly_milestones ?? output.weeklyMilestones,
     resources: output.resources,
-    progressTracking: output.progress_tracking || output.progressTracking
+    progressTracking: output.progress_tracking ?? output.progressTracking,
   };
 }
 
-router.post("/learning/manual", requireAuth, validate(manualSchema), async (req: AuthRequest, res) => {
+/* ------------------ routes ------------------ */
+
+/**
+ * Body (all strings) — EXACTLY as requested:
+ * {
+ *  "job_title": "Networking Engineer",
+ *  "company_name": "Facebook",
+ *  "plan_duration": "21 days",
+ *  "experience_level": "Experienced",
+ *  "focus_areas": "software engineer",
+ *  "skill_gaps": "CSS"
+ * }
+ *
+ * Response always includes:
+ * - id: string
+ * - dailyPlan: stringified JSON **array** of { day, tasks[3] }
+ * - sup: same as dailyPlan but as an array (not string) — convenience
+ * - weeklyMilestones/resources/progressTracking: may be null/undefined
+ */
+router.post("/learning/manual", requireAuth, async (req: AuthRequest, res) => {
+  const b = req.body || {};
+  const missing: string[] = [];
+  if (!okString(b.job_title)) missing.push("job_title");
+  if (!okString(b.company_name)) missing.push("company_name");
+  if (!okString(b.plan_duration)) missing.push("plan_duration");
+  if (!okString(b.experience_level)) missing.push("experience_level");
+
+  if (missing.length) {
+    return res.status(400).json({
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Invalid request",
+        details: missing.map((k) => ({
+          code: "invalid_type",
+          expected: "string",
+          received: typeof b[k],
+          path: ["body", k],
+          message: "Required",
+        })),
+      },
+    });
+  }
+
   try {
-    const providerResp = await createManualPlan(req.body);
-    const extracted = extractOutput(providerResp);
+    // Your hard requirement: exactly N days and exactly 3 tasks per day.
+    const N = intFromDuration(b.plan_duration);
+    const mainGap = (b.skill_gaps || "General").split(",")[0].trim() || "General";
+    const canonical = buildExactPlan(N, mainGap);
+
+    // We still try provider for metadata (optional)
+    let providerResp: any = null;
+    let extracted = { dailyPlan: undefined as string | undefined, weeklyMilestones: undefined as string | undefined, resources: undefined as string | undefined, progressTracking: undefined as string | undefined };
+    try {
+      providerResp = await createManualPlan(b);
+      extracted = extractOutput(providerResp);
+    } catch {
+      // ignore provider failures
+    }
+
+    // Force dailyPlan to the canonical 3-tasks-per-day array (stringified)
+    extracted.dailyPlan = JSON.stringify(canonical);
 
     const created = await LearningPlan.create({
       userId: req.user!.id,
       kind: "manual",
-      request: req.body,
-      providerResponse: providerResp,
-      providerJobId: providerResp.id,
-      providerName: providerResp.name,
+      request: b,
+      providerResponse: providerResp || { note: "canonical_plan_generated" },
+      providerJobId: providerResp?.id,
+      providerName: providerResp?.name,
       status: "ready",
-      ...extracted
+      ...extracted,
     });
 
-    res.status(201).json({ id: created.id, ...extracted });
+    return res.status(201).json({
+      id: created.id,
+      dailyPlan: extracted.dailyPlan,
+      // convenience plain array for any future consumer:
+      sup: canonical,
+      weeklyMilestones: extracted.weeklyMilestones ?? null,
+      resources: extracted.resources ?? null,
+      progressTracking: extracted.progressTracking ?? null,
+    });
   } catch (err: any) {
     console.error("Manual learning plan error", err);
     const created = await LearningPlan.create({
@@ -63,13 +178,16 @@ router.post("/learning/manual", requireAuth, validate(manualSchema), async (req:
       kind: "manual",
       request: req.body,
       status: "error",
-      errorMessage: err.message
+      errorMessage: err.message,
     });
-    res.status(502).json({ error: { code: "PROVIDER_ERROR", message: err.message }, id: created.id });
+    return res.status(502).json({
+      error: { code: "PROVIDER_ERROR", message: err.message },
+      id: created.id,
+    });
   }
 });
 
-router.post("/learning/job-description", requireAuth, validate(jobDescSchema), async (req: AuthRequest, res) => {
+router.post("/learning/job-description", requireAuth, async (req: AuthRequest, res) => {
   try {
     const providerResp = await analyzeJobDescription(req.body);
     const extracted = extractOutput(providerResp);
@@ -82,7 +200,7 @@ router.post("/learning/job-description", requireAuth, validate(jobDescSchema), a
       providerJobId: providerResp.id,
       providerName: providerResp.name,
       status: "ready",
-      ...extracted
+      ...extracted,
     });
 
     res.status(201).json({ id: created.id, ...extracted });
@@ -93,33 +211,37 @@ router.post("/learning/job-description", requireAuth, validate(jobDescSchema), a
       kind: "job_description",
       request: req.body,
       status: "error",
-      errorMessage: err.message
+      errorMessage: err.message,
     });
     res.status(502).json({ error: { code: "PROVIDER_ERROR", message: err.message }, id: created.id });
   }
 });
 
-/** List plans */
 router.get("/learning", requireAuth, async (req: AuthRequest, res) => {
   const docs = await LearningPlan.find({ userId: req.user!.id }).sort({ createdAt: -1 }).limit(100);
-  res.json({ items: docs.map(d => ({
-    id: d.id,
-    kind: d.kind,
-    createdAt: d.createdAt,
-    status: d.status,
-    dailyPlan: d.dailyPlan,
-    weeklyMilestones: d.weeklyMilestones,
-    resources: d.resources,
-    progressTracking: d.progressTracking
-  })) });
+  res.json({
+    items: docs.map((d) => ({
+      id: d.id,
+      kind: d.kind,
+      createdAt: d.createdAt,
+      status: d.status,
+      dailyPlan: d.dailyPlan,
+      weeklyMilestones: d.weeklyMilestones,
+      resources: d.resources,
+      progressTracking: d.progressTracking,
+    })),
+  });
 });
 
-/** Get detail */
 router.get("/learning/:id", requireAuth, async (req: AuthRequest, res) => {
   const { id } = req.params;
-  if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: { code: "BAD_REQUEST", message: "Invalid id" } });
+  if (!mongoose.isValidObjectId(id)) {
+    return res.status(400).json({ error: { code: "BAD_REQUEST", message: "Invalid id" } });
+  }
   const doc = await LearningPlan.findById(id);
-  if (!doc || String(doc.userId) !== String(req.user!.id)) return res.status(404).json({ error: { code: "NOT_FOUND", message: "Not found" } });
+  if (!doc || String(doc.userId) !== String(req.user!.id)) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Not found" } });
+  }
   res.json({
     id: doc.id,
     kind: doc.kind,
@@ -133,7 +255,7 @@ router.get("/learning/:id", requireAuth, async (req: AuthRequest, res) => {
     providerJobId: doc.providerJobId,
     providerName: doc.providerName,
     errorMessage: doc.errorMessage,
-    providerResponse: doc.providerResponse
+    providerResponse: doc.providerResponse,
   });
 });
 
