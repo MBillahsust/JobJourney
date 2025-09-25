@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Card,
   CardContent,
@@ -48,13 +48,181 @@ import {
   Building,
 } from "lucide-react";
 
+/** ---------- Types ---------- */
+type PlanStatus =
+  | "In Progress"
+  | "Active"
+  | "On Track"
+  | "New"
+  | "Started"
+  | "Almost Complete"
+  | "Completed"
+  | "Not Started";
+
+type UIPlan = {
+  id: string;
+  name: string;
+  company: string;
+  role: string;
+  duration: string;
+  progress: number;
+  status: PlanStatus;
+  created: string;
+  targetInterview: string;
+  skillsCount: number;
+  totalHours: number;
+};
+
+type ManualPlanResponse = {
+  id: string;
+  dailyPlan?: string;
+  weeklyMilestones?: string;
+  resources?: string;
+  progressTracking?: string;
+};
+
+const INITIAL_PLANS: UIPlan[] = [
+  {
+    id: "google-swe-plan",
+    name: "Google Software Engineer Plan",
+    company: "Google",
+    role: "Senior Software Engineer",
+    duration: "14 days",
+    progress: 45,
+    status: "In Progress",
+    created: "2024-10-15",
+    targetInterview: "2024-11-05",
+    skillsCount: 8,
+    totalHours: 32,
+  },
+  {
+    id: "meta-backend-plan",
+    name: "Meta Backend Engineer Plan",
+    company: "Meta",
+    role: "Backend Engineer",
+    duration: "12 days",
+    progress: 70,
+    status: "Active",
+    created: "2024-10-10",
+    targetInterview: "2024-10-28",
+    skillsCount: 6,
+    totalHours: 28,
+  },
+  {
+    id: "netflix-fullstack-plan",
+    name: "Netflix Full Stack Plan",
+    company: "Netflix",
+    role: "Full Stack Engineer",
+    duration: "16 days",
+    progress: 25,
+    status: "New",
+    created: "2024-10-20",
+    targetInterview: "2024-11-10",
+    skillsCount: 10,
+    totalHours: 40,
+  },
+  {
+    id: "stripe-frontend-plan",
+    name: "Stripe Frontend Developer Plan",
+    company: "Stripe",
+    role: "Senior Frontend Developer",
+    duration: "10 days",
+    progress: 90,
+    status: "Almost Complete",
+    created: "2024-10-05",
+    targetInterview: "2024-10-25",
+    skillsCount: 5,
+    totalHours: 24,
+  },
+  {
+    id: "amazon-sde-plan",
+    name: "Amazon SDE Plan",
+    company: "Amazon",
+    role: "Software Development Engineer",
+    duration: "18 days",
+    progress: 15,
+    status: "Started",
+    created: "2024-10-22",
+    targetInterview: "2024-11-15",
+    skillsCount: 12,
+    totalHours: 45,
+  },
+  {
+    id: "microsoft-cloud-plan",
+    name: "Microsoft Cloud Engineer Plan",
+    company: "Microsoft",
+    role: "Cloud Solutions Engineer",
+    duration: "14 days",
+    progress: 60,
+    status: "On Track",
+    created: "2024-10-12",
+    targetInterview: "2024-11-02",
+    skillsCount: 9,
+    totalHours: 36,
+  },
+  {
+    id: "tesla-swe-plan",
+    name: "Tesla Software Engineer Plan",
+    company: "Tesla",
+    role: "Software Engineer",
+    duration: "15 days",
+    progress: 35,
+    status: "In Progress",
+    created: "2024-10-18",
+    targetInterview: "2024-11-08",
+    skillsCount: 7,
+    totalHours: 30,
+  },
+  {
+    id: "spotify-data-plan",
+    name: "Spotify Data Engineer Plan",
+    company: "Spotify",
+    role: "Senior Data Engineer",
+    duration: "20 days",
+    progress: 0,
+    status: "Not Started",
+    created: "2024-10-23",
+    targetInterview: "2024-11-20",
+    skillsCount: 11,
+    totalHours: 50,
+  },
+];
+
+/** ---------- Helpers: get token from storage/cookies ---------- */
+function readCookie(name: string) {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+function getToken(): string | null {
+  // common keys used by apps
+  const fromLS =
+    (typeof localStorage !== "undefined" &&
+      (localStorage.getItem("token") ||
+        localStorage.getItem("accessToken") ||
+        localStorage.getItem("access_token") ||
+        localStorage.getItem("jwt") ||
+        localStorage.getItem("idToken"))) ||
+    null;
+
+  const fromCookie =
+    readCookie("token") ||
+    readCookie("accessToken") ||
+    readCookie("access_token") ||
+    readCookie("jwt") ||
+    readCookie("idToken");
+
+  return (fromLS || fromCookie || "").trim() || null;
+}
+
+/** ---------- Component ---------- */
 export function PrepPlan() {
-  const [selectedPlan, setSelectedPlan] = useState(
-    "google-swe-plan",
-  );
+  const [prepPlans, setPrepPlans] = useState<UIPlan[]>(INITIAL_PLANS);
+  const [selectedPlan, setSelectedPlan] = useState<string>("google-swe-plan");
   const [selectedDay, setSelectedDay] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [aiAgentOpen, setAiAgentOpen] = useState(false);
+
   const [newPlanForm, setNewPlanForm] = useState({
     jobTitle: "",
     company: "",
@@ -63,113 +231,15 @@ export function PrepPlan() {
     experience: "",
     priority: "",
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const prepPlans = [
-    {
-      id: "google-swe-plan",
-      name: "Google Software Engineer Plan",
-      company: "Google",
-      role: "Senior Software Engineer",
-      duration: "14 days",
-      progress: 45,
-      status: "In Progress",
-      created: "2024-10-15",
-      targetInterview: "2024-11-05",
-      skillsCount: 8,
-      totalHours: 32,
-    },
-    {
-      id: "meta-backend-plan",
-      name: "Meta Backend Engineer Plan",
-      company: "Meta",
-      role: "Backend Engineer",
-      duration: "12 days",
-      progress: 70,
-      status: "Active",
-      created: "2024-10-10",
-      targetInterview: "2024-10-28",
-      skillsCount: 6,
-      totalHours: 28,
-    },
-    {
-      id: "netflix-fullstack-plan",
-      name: "Netflix Full Stack Plan",
-      company: "Netflix",
-      role: "Full Stack Engineer",
-      duration: "16 days",
-      progress: 25,
-      status: "New",
-      created: "2024-10-20",
-      targetInterview: "2024-11-10",
-      skillsCount: 10,
-      totalHours: 40,
-    },
-    {
-      id: "stripe-frontend-plan",
-      name: "Stripe Frontend Developer Plan",
-      company: "Stripe",
-      role: "Senior Frontend Developer",
-      duration: "10 days",
-      progress: 90,
-      status: "Almost Complete",
-      created: "2024-10-05",
-      targetInterview: "2024-10-25",
-      skillsCount: 5,
-      totalHours: 24,
-    },
-    {
-      id: "amazon-sde-plan",
-      name: "Amazon SDE Plan",
-      company: "Amazon",
-      role: "Software Development Engineer",
-      duration: "18 days",
-      progress: 15,
-      status: "Started",
-      created: "2024-10-22",
-      targetInterview: "2024-11-15",
-      skillsCount: 12,
-      totalHours: 45,
-    },
-    {
-      id: "microsoft-cloud-plan",
-      name: "Microsoft Cloud Engineer Plan",
-      company: "Microsoft",
-      role: "Cloud Solutions Engineer",
-      duration: "14 days",
-      progress: 60,
-      status: "On Track",
-      created: "2024-10-12",
-      targetInterview: "2024-11-02",
-      skillsCount: 9,
-      totalHours: 36,
-    },
-    {
-      id: "tesla-swe-plan",
-      name: "Tesla Software Engineer Plan",
-      company: "Tesla",
-      role: "Software Engineer",
-      duration: "15 days",
-      progress: 35,
-      status: "In Progress",
-      created: "2024-10-18",
-      targetInterview: "2024-11-08",
-      skillsCount: 7,
-      totalHours: 30,
-    },
-    {
-      id: "spotify-data-plan",
-      name: "Spotify Data Engineer Plan",
-      company: "Spotify",
-      role: "Senior Data Engineer",
-      duration: "20 days",
-      progress: 0,
-      status: "Not Started",
-      created: "2024-10-23",
-      targetInterview: "2024-11-20",
-      skillsCount: 11,
-      totalHours: 50,
-    },
-  ];
+  // Backend base URL: use Vite env if present, otherwise same-origin
+  const API_BASE = useMemo(
+    () =>
+      (import.meta as any)?.env?.VITE_API_BASE_URL?.replace(/\/+$/, "") || "",
+    []
+  );
 
   const weeklyStats = {
     totalHours: 10,
@@ -184,30 +254,9 @@ export function PrepPlan() {
       date: "Mon, Oct 21",
       completed: true,
       tasks: [
-        {
-          id: 1,
-          type: "coding",
-          title: "Two Pointers - Easy Problems",
-          duration: 45,
-          completed: true,
-          gap: "Array Manipulation",
-        },
-        {
-          id: 2,
-          type: "system",
-          title: "Load Balancer Basics",
-          duration: 30,
-          completed: true,
-          gap: "System Design",
-        },
-        {
-          id: 3,
-          type: "review",
-          title: "Big O Notation Review",
-          duration: 15,
-          completed: true,
-          gap: "CS Fundamentals",
-        },
+        { id: 1, type: "coding", title: "Two Pointers - Easy Problems", duration: 45, completed: true, gap: "Array Manipulation" },
+        { id: 2, type: "system", title: "Load Balancer Basics", duration: 30, completed: true, gap: "System Design" },
+        { id: 3, type: "review", title: "Big O Notation Review", duration: 15, completed: true, gap: "CS Fundamentals" },
       ],
     },
     {
@@ -216,30 +265,9 @@ export function PrepPlan() {
       completed: false,
       current: true,
       tasks: [
-        {
-          id: 4,
-          type: "coding",
-          title: "Binary Search Practice",
-          duration: 45,
-          completed: false,
-          gap: "Search Algorithms",
-        },
-        {
-          id: 5,
-          type: "system",
-          title: "Database Sharding",
-          duration: 30,
-          completed: false,
-          gap: "System Design",
-        },
-        {
-          id: 6,
-          type: "review",
-          title: "Kubernetes Fundamentals",
-          duration: 20,
-          completed: false,
-          gap: "Container Orchestration",
-        },
+        { id: 4, type: "coding", title: "Binary Search Practice", duration: 45, completed: false, gap: "Search Algorithms" },
+        { id: 5, type: "system", title: "Database Sharding", duration: 30, completed: false, gap: "System Design" },
+        { id: 6, type: "review", title: "Kubernetes Fundamentals", duration: 20, completed: false, gap: "Container Orchestration" },
       ],
     },
     {
@@ -247,77 +275,30 @@ export function PrepPlan() {
       date: "Wed, Oct 23",
       completed: false,
       tasks: [
-        {
-          id: 7,
-          type: "coding",
-          title: "Tree Traversal Problems",
-          duration: 50,
-          completed: false,
-          gap: "Data Structures",
-        },
-        {
-          id: 8,
-          type: "behavioral",
-          title: "STAR Method Practice",
-          duration: 25,
-          completed: false,
-          gap: "Interview Skills",
-        },
-        {
-          id: 9,
-          type: "review",
-          title: "GraphQL Query Optimization",
-          duration: 20,
-          completed: false,
-          gap: "API Design",
-        },
+        { id: 7, type: "coding", title: "Tree Traversal Problems", duration: 50, completed: false, gap: "Data Structures" },
+        { id: 8, type: "behavioral", title: "STAR Method Practice", duration: 25, completed: false, gap: "Interview Skills" },
+        { id: 9, type: "review", title: "GraphQL Query Optimization", duration: 20, completed: false, gap: "API Design" },
       ],
     },
   ];
 
   const gapProgress = [
-    {
-      gap: "Kubernetes",
-      progress: 35,
-      target: "Week 2",
-      priority: "High",
-    },
-    {
-      gap: "GraphQL",
-      progress: 60,
-      target: "Week 1",
-      priority: "Medium",
-    },
-    {
-      gap: "System Design",
-      progress: 75,
-      target: "Ongoing",
-      priority: "High",
-    },
-    {
-      gap: "Microservices",
-      progress: 20,
-      target: "Week 3",
-      priority: "Medium",
-    },
+    { gap: "Kubernetes", progress: 35, target: "Week 2", priority: "High" },
+    { gap: "GraphQL", progress: 60, target: "Week 1", priority: "Medium" },
+    { gap: "System Design", progress: 75, target: "Ongoing", priority: "High" },
+    { gap: "Microservices", progress: 20, target: "Week 3", priority: "Medium" },
   ];
 
   const filteredPlans = prepPlans.filter(
     (plan) =>
-      plan.name
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      plan.company
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      plan.role
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()),
+      plan.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      plan.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      plan.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const currentPlan = dailyPlans[selectedDay - 1];
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: PlanStatus) => {
     switch (status) {
       case "Completed":
       case "Almost Complete":
@@ -330,7 +311,6 @@ export function PrepPlan() {
       case "Started":
         return "bg-purple-100 text-purple-800";
       case "Not Started":
-        return "bg-gray-100 text-gray-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -343,21 +323,96 @@ export function PrepPlan() {
     return "text-red-600";
   };
 
+  /** -------- Generate plan: calls POST /v1/learning/manual -------- */
+  const onGeneratePlan = async () => {
+    setFormError(null);
+
+    if (!newPlanForm.jobTitle.trim()) return setFormError("Please enter a job title.");
+    if (!newPlanForm.company.trim()) return setFormError("Please enter a company.");
+    if (!newPlanForm.targetDate) return setFormError("Please select a target interview date.");
+    if (!newPlanForm.experience) return setFormError("Please choose an experience level.");
+
+    const payload = {
+      job_title: newPlanForm.jobTitle.trim(),
+      company_name: newPlanForm.company.trim(),
+      target_date: newPlanForm.targetDate,
+      experience_level: newPlanForm.experience,
+      focus_areas: newPlanForm.priority || undefined,
+      skill_gaps: newPlanForm.skillGaps || undefined,
+    };
+
+    const token = getToken();
+
+    setSubmitting(true);
+    try {
+      const resp = await fetch(`${API_BASE}/v1/learning/manual`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!resp.ok) {
+        // Prefer server's JSON error payload
+        const errJson = await resp.json().catch(() => null);
+        if (resp.status === 401) {
+          throw new Error(errJson?.error?.message || "Unauthorized: missing or invalid token");
+        }
+        throw new Error(errJson?.error?.message || `Request failed: ${resp.status}`);
+      }
+
+      const data = (await resp.json()) as ManualPlanResponse;
+
+      const newId = data.id || `plan-${Date.now()}`;
+      const niceName = `${newPlanForm.company} ${newPlanForm.jobTitle} Plan`;
+
+      const newUiPlan: UIPlan = {
+        id: newId,
+        name: niceName,
+        company: newPlanForm.company,
+        role: newPlanForm.jobTitle,
+        duration: "14 days",
+        progress: 0,
+        status: "New",
+        created: new Date().toISOString().slice(0, 10),
+        targetInterview: newPlanForm.targetDate,
+        skillsCount: 0,
+        totalHours: 0,
+      };
+
+      setPrepPlans((prev) => [newUiPlan, ...prev]);
+      setSelectedPlan(newUiPlan.id);
+      setAiAgentOpen(false);
+
+      setNewPlanForm({
+        jobTitle: "",
+        company: "",
+        targetDate: "",
+        skillGaps: "",
+        experience: "",
+        priority: "",
+      });
+    } catch (e: any) {
+      setFormError(e?.message || "Failed to generate plan.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="h-full overflow-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">My Plans</h1>
           <p className="text-muted-foreground">
-            Personalized learning schedules to close your skill
-            gaps
+            Personalized learning schedules to close your skill gaps
           </p>
         </div>
         <div className="flex gap-2">
-          <Dialog
-            open={aiAgentOpen}
-            onOpenChange={setAiAgentOpen}
-          >
+          <Dialog open={aiAgentOpen} onOpenChange={setAiAgentOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
@@ -371,21 +426,24 @@ export function PrepPlan() {
                   AI Plan Generator
                 </DialogTitle>
               </DialogHeader>
+
               <div className="space-y-6 py-4">
                 <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Sparkles className="h-4 w-4 text-primary" />
-                    <span className="font-medium text-primary">
-                      AI Assistant
-                    </span>
+                    <span className="font-medium text-primary">AI Assistant</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    I'll create a personalized 14-day
-                    preparation plan based on your target job
-                    and current skills. Let me gather some
-                    information about your goals.
+                    I&apos;ll create a personalized 14-day preparation plan based on your target job and current skills.
+                    Let me gather some information about your goals.
                   </p>
                 </div>
+
+                {formError && (
+                  <div className="text-sm text-red-600 border border-red-200 rounded-md p-2 bg-red-50">
+                    {formError}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -393,12 +451,7 @@ export function PrepPlan() {
                     <Input
                       placeholder="e.g., Senior Software Engineer"
                       value={newPlanForm.jobTitle}
-                      onChange={(e) =>
-                        setNewPlanForm({
-                          ...newPlanForm,
-                          jobTitle: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setNewPlanForm({ ...newPlanForm, jobTitle: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
@@ -406,12 +459,7 @@ export function PrepPlan() {
                     <Input
                       placeholder="e.g., Google"
                       value={newPlanForm.company}
-                      onChange={(e) =>
-                        setNewPlanForm({
-                          ...newPlanForm,
-                          company: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setNewPlanForm({ ...newPlanForm, company: e.target.value })}
                     />
                   </div>
                 </div>
@@ -422,41 +470,23 @@ export function PrepPlan() {
                     <Input
                       type="date"
                       value={newPlanForm.targetDate}
-                      onChange={(e) =>
-                        setNewPlanForm({
-                          ...newPlanForm,
-                          targetDate: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setNewPlanForm({ ...newPlanForm, targetDate: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Experience Level</Label>
                     <Select
                       value={newPlanForm.experience}
-                      onValueChange={(value: string) =>
-                        setNewPlanForm({
-                          ...newPlanForm,
-                          experience: value,
-                        })
-                      }
+                      onValueChange={(value: string) => setNewPlanForm({ ...newPlanForm, experience: value })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select experience" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="junior">
-                          Junior (0-2 years)
-                        </SelectItem>
-                        <SelectItem value="mid">
-                          Mid-level (2-5 years)
-                        </SelectItem>
-                        <SelectItem value="senior">
-                          Senior (5-8 years)
-                        </SelectItem>
-                        <SelectItem value="lead">
-                          Lead (8+ years)
-                        </SelectItem>
+                        <SelectItem value="junior">Junior (0-2 years)</SelectItem>
+                        <SelectItem value="mid">Mid-level (2-5 years)</SelectItem>
+                        <SelectItem value="senior">Senior (5-8 years)</SelectItem>
+                        <SelectItem value="lead">Lead (8+ years)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -466,32 +496,17 @@ export function PrepPlan() {
                   <Label>Priority Focus Area</Label>
                   <Select
                     value={newPlanForm.priority}
-                    onValueChange={(value: string) =>
-                      setNewPlanForm({
-                        ...newPlanForm,
-                        priority: value,
-                      })
-                    }
+                    onValueChange={(value: string) => setNewPlanForm({ ...newPlanForm, priority: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="What do you want to focus on most?" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="coding">
-                        Coding & Algorithms
-                      </SelectItem>
-                      <SelectItem value="system-design">
-                        System Design
-                      </SelectItem>
-                      <SelectItem value="behavioral">
-                        Behavioral Interviews
-                      </SelectItem>
-                      <SelectItem value="technical-skills">
-                        Technical Skills
-                      </SelectItem>
-                      <SelectItem value="comprehensive">
-                        Comprehensive Prep
-                      </SelectItem>
+                      <SelectItem value="coding">Coding & Algorithms</SelectItem>
+                      <SelectItem value="system-design">System Design</SelectItem>
+                      <SelectItem value="behavioral">Behavioral Interviews</SelectItem>
+                      <SelectItem value="technical-skills">Technical Skills</SelectItem>
+                      <SelectItem value="comprehensive">Comprehensive Prep</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -501,12 +516,7 @@ export function PrepPlan() {
                   <Textarea
                     placeholder="Describe areas you want to improve (e.g., Kubernetes, System Design, GraphQL, etc.)"
                     value={newPlanForm.skillGaps}
-                    onChange={(e) =>
-                      setNewPlanForm({
-                        ...newPlanForm,
-                        skillGaps: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setNewPlanForm({ ...newPlanForm, skillGaps: e.target.value })}
                     className="min-h-[80px]"
                   />
                 </div>
@@ -515,19 +525,17 @@ export function PrepPlan() {
               <div className="flex justify-between gap-2 pt-4">
                 <Button
                   variant="outline"
-                  onClick={() => setAiAgentOpen(false)}
+                  onClick={() => {
+                    setFormError(null);
+                    setAiAgentOpen(false);
+                  }}
+                  disabled={submitting}
                 >
                   Cancel
                 </Button>
-                <Button
-                  onClick={() => {
-                    // Placeholder for AI generation
-                    setAiAgentOpen(false);
-                  }}
-                  className="gap-2"
-                >
+                <Button onClick={onGeneratePlan} className="gap-2" disabled={submitting}>
                   <Sparkles className="h-4 w-4" />
-                  Generate Plan
+                  {submitting ? "Generating..." : "Generate Plan"}
                 </Button>
               </div>
             </DialogContent>
@@ -551,87 +559,48 @@ export function PrepPlan() {
           return (
             <div key={plan.id}>
               <Card
-                className={`cursor-pointer transition-all hover:shadow-md ${
-                  isSelected
-                    ? "border-primary bg-primary/5"
-                    : ""
-                }`}
-                onClick={() =>
-                  setSelectedPlan(isSelected ? "" : plan.id)
-                }
+                className={`cursor-pointer transition-all hover:shadow-md ${isSelected ? "border-primary bg-primary/5" : ""}`}
+                onClick={() => setSelectedPlan(isSelected ? "" : plan.id)}
               >
                 <CardContent className="flex flex-wrap items-center gap-6 py-4">
                   <div className="min-w-[240px]">
-                    <p className="font-medium leading-tight">
-                      {plan.name}
-                    </p>
+                    <p className="font-medium leading-tight">{plan.name}</p>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Building className="h-3 w-3" />
                       <span>{plan.company}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {plan.role}
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">{plan.role}</p>
                   </div>
 
                   <div className="flex-1 max-w-[260px]">
                     <div className="flex justify-between text-xs mb-1">
                       <span>Progress</span>
-                      <span
-                        className={`font-medium ${getProgressColor(plan.progress)}`}
-                      >
-                        {plan.progress}%
-                      </span>
+                      <span className={`font-medium ${getProgressColor(plan.progress)}`}>{plan.progress}%</span>
                     </div>
-                    <Progress
-                      value={plan.progress}
-                      className="h-2"
-                    />
+                    <Progress value={plan.progress} className="h-2" />
                   </div>
 
                   <div className="flex items-center gap-8 text-sm">
                     <div className="text-center">
-                      <p className="text-muted-foreground text-xs">
-                        Duration
-                      </p>
-                      <p className="font-medium">
-                        {plan.duration}
-                      </p>
+                      <p className="text-muted-foreground text-xs">Duration</p>
+                      <p className="font-medium">{plan.duration}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-muted-foreground text-xs">
-                        Skills
-                      </p>
-                      <p className="font-medium">
-                        {plan.skillsCount}
-                      </p>
+                      <p className="text-muted-foreground text-xs">Skills</p>
+                      <p className="font-medium">{plan.skillsCount}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-muted-foreground text-xs">
-                        Hours
-                      </p>
-                      <p className="font-medium">
-                        {plan.totalHours}h
-                      </p>
+                      <p className="text-muted-foreground text-xs">Hours</p>
+                      <p className="font-medium">{plan.totalHours}h</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-muted-foreground text-xs">
-                        Interview
-                      </p>
-                      <p className="font-medium">
-                        {new Date(
-                          plan.targetInterview,
-                        ).toLocaleDateString()}
-                      </p>
+                      <p className="text-muted-foreground text-xs">Interview</p>
+                      <p className="font-medium">{new Date(plan.targetInterview).toLocaleDateString()}</p>
                     </div>
                   </div>
 
                   <div className="ml-auto flex items-center gap-3">
-                    <Badge
-                      className={getStatusColor(plan.status)}
-                    >
-                      {plan.status}
-                    </Badge>
+                    <Badge className={getStatusColor(plan.status)}>{plan.status}</Badge>
                     <Button variant="ghost" size="sm">
                       {isSelected ? "Hide" : "View"}
                     </Button>
@@ -645,29 +614,17 @@ export function PrepPlan() {
                     <CardHeader className="py-4">
                       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div>
-                          <CardTitle className="text-lg">
-                            {plan.name}
-                          </CardTitle>
+                          <CardTitle className="text-lg">{plan.name}</CardTitle>
                           <p className="text-muted-foreground mt-1 text-sm">
                             {plan.role} at {plan.company}
                           </p>
                         </div>
                         <div className="flex items-center gap-4">
-                          <Badge
-                            className={getStatusColor(
-                              plan.status,
-                            )}
-                          >
-                            {plan.status}
-                          </Badge>
+                          <Badge className={getStatusColor(plan.status)}>{plan.status}</Badge>
                           <div className="text-right">
-                            <p className="text-xs text-muted-foreground">
-                              Target Interview
-                            </p>
+                            <p className="text-xs text-muted-foreground">Target Interview</p>
                             <p className="font-medium text-sm">
-                              {new Date(
-                                plan.targetInterview,
-                              ).toLocaleDateString()}
+                              {new Date(plan.targetInterview).toLocaleDateString()}
                             </p>
                           </div>
                         </div>
@@ -683,12 +640,9 @@ export function PrepPlan() {
                             <Clock className="h-4 w-4 text-blue-600" />
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground">
-                              Weekly Progress
-                            </p>
+                            <p className="text-xs text-muted-foreground">Weekly Progress</p>
                             <p className="text-lg font-semibold">
-                              {weeklyStats.completedHours}/
-                              {weeklyStats.totalHours}h
+                              {weeklyStats.completedHours}/{weeklyStats.totalHours}h
                             </p>
                           </div>
                         </div>
@@ -701,12 +655,9 @@ export function PrepPlan() {
                             <CheckCircle2 className="h-4 w-4 text-green-600" />
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground">
-                              Tasks Done
-                            </p>
+                            <p className="text-xs text-muted-foreground">Tasks Done</p>
                             <p className="text-lg font-semibold">
-                              {weeklyStats.tasksCompleted}/
-                              {weeklyStats.totalTasks}
+                              {weeklyStats.tasksCompleted}/{weeklyStats.totalTasks}
                             </p>
                           </div>
                         </div>
@@ -719,16 +670,9 @@ export function PrepPlan() {
                             <Target className="h-4 w-4 text-purple-600" />
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground">
-                              Completion
-                            </p>
+                            <p className="text-xs text-muted-foreground">Completion</p>
                             <p className="text-lg font-semibold">
-                              {Math.round(
-                                (weeklyStats.tasksCompleted /
-                                  weeklyStats.totalTasks) *
-                                  100,
-                              )}
-                              %
+                              {Math.round((weeklyStats.tasksCompleted / weeklyStats.totalTasks) * 100)}%
                             </p>
                           </div>
                         </div>
@@ -736,26 +680,14 @@ export function PrepPlan() {
                     </Card>
                   </div>
 
-                  <Tabs
-                    defaultValue="daily"
-                    className="space-y-4"
-                  >
+                  <Tabs defaultValue="daily" className="space-y-4">
                     <TabsList className="grid w-full grid-cols-3">
-                      <TabsTrigger value="daily">
-                        Daily Plan
-                      </TabsTrigger>
-                      <TabsTrigger value="gaps">
-                        Gap Progress
-                      </TabsTrigger>
-                      <TabsTrigger value="resources">
-                        Resources
-                      </TabsTrigger>
+                      <TabsTrigger value="daily">Daily Plan</TabsTrigger>
+                      <TabsTrigger value="gaps">Gap Progress</TabsTrigger>
+                      <TabsTrigger value="resources">Resources</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent
-                      value="daily"
-                      className="space-y-4"
-                    >
+                    <TabsContent value="daily" className="space-y-4">
                       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                         <Card>
                           <CardHeader>
@@ -779,19 +711,11 @@ export function PrepPlan() {
                                 }`}
                               >
                                 <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-medium">
-                                    Day {d.day}
-                                  </span>
-                                  {d.completed && (
-                                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                  )}
-                                  {d.current && (
-                                    <div className="h-2 w-2 bg-orange-500 rounded-full" />
-                                  )}
+                                  <span className="font-medium">Day {d.day}</span>
+                                  {d.completed && <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                                  {d.current && <div className="h-2 w-2 bg-orange-500 rounded-full" />}
                                 </div>
-                                <p className="text-xs opacity-70">
-                                  {d.date}
-                                </p>
+                                <p className="text-xs opacity-70">{d.date}</p>
                               </button>
                             ))}
                           </CardContent>
@@ -801,20 +725,12 @@ export function PrepPlan() {
                           <CardHeader>
                             <div className="flex items-center justify-between">
                               <CardTitle>
-                                Day {currentPlan.day} -{" "}
-                                {currentPlan.date}
+                                Day {currentPlan.day} - {currentPlan.date}
                               </CardTitle>
                               <div className="flex items-center gap-2">
-                                {currentPlan.current && (
-                                  <Badge variant="secondary">
-                                    Today
-                                  </Badge>
-                                )}
+                                {currentPlan.current && <Badge variant="secondary">Today</Badge>}
                                 {currentPlan.completed && (
-                                  <Badge
-                                    variant="default"
-                                    className="bg-green-600"
-                                  >
+                                  <Badge variant="default" className="bg-green-600">
                                     Completed
                                   </Badge>
                                 )}
@@ -823,31 +739,19 @@ export function PrepPlan() {
                           </CardHeader>
                           <CardContent className="space-y-4">
                             {currentPlan.tasks.map((task) => {
-                              const getTaskIcon = (
-                                type: string,
-                              ) => {
+                              const getTaskIcon = (type: string) => {
                                 switch (type) {
                                   case "coding":
-                                    return (
-                                      <Code className="h-4 w-4" />
-                                    );
+                                    return <Code className="h-4 w-4" />;
                                   case "system":
-                                    return (
-                                      <Target className="h-4 w-4" />
-                                    );
+                                    return <Target className="h-4 w-4" />;
                                   case "behavioral":
-                                    return (
-                                      <Users className="h-4 w-4" />
-                                    );
+                                    return <Users className="h-4 w-4" />;
                                   default:
-                                    return (
-                                      <BookOpen className="h-4 w-4" />
-                                    );
+                                    return <BookOpen className="h-4 w-4" />;
                                 }
                               };
-                              const getTaskColor = (
-                                type: string,
-                              ) => {
+                              const getTaskColor = (type: string) => {
                                 switch (type) {
                                   case "coding":
                                     return "bg-blue-100 text-blue-600";
@@ -860,30 +764,15 @@ export function PrepPlan() {
                                 }
                               };
                               return (
-                                <div
-                                  key={task.id}
-                                  className="p-4 border rounded-lg space-y-3"
-                                >
+                                <div key={task.id} className="p-4 border rounded-lg space-y-3">
                                   <div className="flex items-center gap-3">
-                                    <div
-                                      className={`p-2 rounded-lg ${getTaskColor(task.type)}`}
-                                    >
-                                      {getTaskIcon(task.type)}
-                                    </div>
+                                    <div className={`p-2 rounded-lg ${getTaskColor(task.type)}`}>{getTaskIcon(task.type)}</div>
                                     <div className="flex-1">
-                                      <h4
-                                        className={`font-medium ${
-                                          task.completed
-                                            ? "line-through text-muted-foreground"
-                                            : ""
-                                        }`}
-                                      >
+                                      <h4 className={`font-medium ${task.completed ? "line-through text-muted-foreground" : ""}`}>
                                         {task.title}
                                       </h4>
                                       <p className="text-sm text-muted-foreground">
-                                        {task.duration} minutes
-                                        • Closes "{task.gap}"
-                                        gap
+                                        {task.duration} minutes • Closes "{task.gap}" gap
                                       </p>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -896,17 +785,11 @@ export function PrepPlan() {
                                   </div>
                                   {!task.completed && (
                                     <div className="flex gap-2">
-                                      <Button
-                                        size="sm"
-                                        className="gap-2"
-                                      >
+                                      <Button size="sm" className="gap-2">
                                         <Play className="h-4 w-4" />
                                         Start Task
                                       </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                      >
+                                      <Button size="sm" variant="outline">
                                         View Resources
                                       </Button>
                                     </div>
@@ -918,22 +801,12 @@ export function PrepPlan() {
                               <div className="flex items-center justify-between text-sm">
                                 <span>Daily Progress</span>
                                 <span>
-                                  {
-                                    currentPlan.tasks.filter(
-                                      (t) => t.completed,
-                                    ).length
-                                  }
-                                  /{currentPlan.tasks.length}{" "}
-                                  tasks
+                                  {currentPlan.tasks.filter((t) => t.completed).length}/{currentPlan.tasks.length} tasks
                                 </span>
                               </div>
                               <Progress
                                 value={
-                                  (currentPlan.tasks.filter(
-                                    (t) => t.completed,
-                                  ).length /
-                                    currentPlan.tasks.length) *
-                                  100
+                                  (currentPlan.tasks.filter((t) => t.completed).length / currentPlan.tasks.length) * 100
                                 }
                                 className="mt-2"
                               />
@@ -943,95 +816,49 @@ export function PrepPlan() {
                       </div>
                     </TabsContent>
 
-                    <TabsContent
-                      value="gaps"
-                      className="space-y-4"
-                    >
+                    <TabsContent value="gaps" className="space-y-4">
                       <Card>
                         <CardHeader>
-                          <CardTitle>
-                            Skill Gap Progress
-                          </CardTitle>
+                          <CardTitle>Skill Gap Progress</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                           {gapProgress.map((g, idx) => (
-                            <div
-                              key={idx}
-                              className="space-y-3"
-                            >
+                            <div key={idx} className="space-y-3">
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <h4 className="font-medium">
-                                    {g.gap}
-                                  </h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    Target: {g.target}
-                                  </p>
+                                  <h4 className="font-medium">{g.gap}</h4>
+                                  <p className="text-sm text-muted-foreground">Target: {g.target}</p>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                  <Badge
-                                    variant={
-                                      g.priority === "High"
-                                        ? "destructive"
-                                        : "secondary"
-                                    }
-                                  >
-                                    {g.priority}
-                                  </Badge>
-                                  <span className="text-sm font-medium">
-                                    {g.progress}%
-                                  </span>
+                                  <Badge variant={g.priority === "High" ? "destructive" : "secondary"}>{g.priority}</Badge>
+                                  <span className="text-sm font-medium">{g.progress}%</span>
                                 </div>
                               </div>
-                              <Progress
-                                value={g.progress}
-                                className="h-2"
-                              />
+                              <Progress value={g.progress} className="h-2" />
                             </div>
                           ))}
                         </CardContent>
                       </Card>
                     </TabsContent>
 
-                    <TabsContent
-                      value="resources"
-                      className="space-y-4"
-                    >
+                    <TabsContent value="resources" className="space-y-4">
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <Card>
                           <CardHeader>
-                            <CardTitle>
-                              Coding Practice
-                            </CardTitle>
+                            <CardTitle>Coding Practice</CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-3">
                             <div className="p-3 border rounded-lg">
-                              <h4 className="font-medium">
-                                LeetCode Patterns
-                              </h4>
-                              <p className="text-sm text-muted-foreground">
-                                Curated problems by pattern
-                              </p>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="mt-2"
-                              >
+                              <h4 className="font-medium">LeetCode Patterns</h4>
+                              <p className="text-sm text-muted-foreground">Curated problems by pattern</p>
+                              <Button size="sm" variant="outline" className="mt-2">
                                 Open Resource
                               </Button>
                             </div>
                             <div className="p-3 border rounded-lg">
-                              <h4 className="font-medium">
-                                System Design Primer
-                              </h4>
-                              <p className="text-sm text-muted-foreground">
-                                Comprehensive guide
-                              </p>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="mt-2"
-                              >
+                              <h4 className="font-medium">System Design Primer</h4>
+                              <p className="text-sm text-muted-foreground">Comprehensive guide</p>
+                              <Button size="sm" variant="outline" className="mt-2">
                                 Open Resource
                               </Button>
                             </div>
@@ -1039,38 +866,20 @@ export function PrepPlan() {
                         </Card>
                         <Card>
                           <CardHeader>
-                            <CardTitle>
-                              Learning Materials
-                            </CardTitle>
+                            <CardTitle>Learning Materials</CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-3">
                             <div className="p-3 border rounded-lg">
-                              <h4 className="font-medium">
-                                Kubernetes Documentation
-                              </h4>
-                              <p className="text-sm text-muted-foreground">
-                                Official K8s docs
-                              </p>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="mt-2"
-                              >
+                              <h4 className="font-medium">Kubernetes Documentation</h4>
+                              <p className="text-sm text-muted-foreground">Official K8s docs</p>
+                              <Button size="sm" variant="outline" className="mt-2">
                                 Open Resource
                               </Button>
                             </div>
                             <div className="p-3 border rounded-lg">
-                              <h4 className="font-medium">
-                                GraphQL Best Practices
-                              </h4>
-                              <p className="text-sm text-muted-foreground">
-                                Implementation guide
-                              </p>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="mt-2"
-                              >
+                              <h4 className="font-medium">GraphQL Best Practices</h4>
+                              <p className="text-sm text-muted-foreground">Implementation guide</p>
+                              <Button size="sm" variant="outline" className="mt-2">
                                 Open Resource
                               </Button>
                             </div>

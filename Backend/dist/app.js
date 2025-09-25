@@ -1,14 +1,46 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 // app.ts
-const express_1 = __importDefault(require("express"));
+const express_1 = __importStar(require("express"));
 const helmet_1 = __importDefault(require("helmet"));
 const cors_1 = __importDefault(require("cors"));
 const pino_http_1 = __importDefault(require("pino-http"));
-const express_2 = require("express");
 const error_1 = require("./middlewares/error");
 const rateLimit_1 = require("./middlewares/rateLimit");
 // Routers
@@ -20,23 +52,16 @@ const ats_routes_1 = __importDefault(require("./modules/ats/ats.routes"));
 const application_routes_1 = __importDefault(require("./modules/applications/application.routes"));
 const jobAlert_routes_1 = __importDefault(require("./modules/alerts/jobAlert.routes"));
 const docs_routes_1 = __importDefault(require("./modules/docs/docs.routes"));
-// NEW: exams
 const exam_routes_1 = __importDefault(require("./modules/exams/exam.routes"));
+// ✅ ADD THIS
+const learning_routes_1 = __importDefault(require("./modules/learning/learning.routes"));
 const app = (0, express_1.default)();
 /* -------------------------- Security headers -------------------------- */
 app.use((0, helmet_1.default)());
 /* -------------------------- Body parsers ------------------------------ */
-app.use((0, express_2.json)({ limit: "1mb" }));
-app.use((0, express_2.urlencoded)({ extended: true }));
+app.use((0, express_1.json)({ limit: "1mb" }));
+app.use((0, express_1.urlencoded)({ extended: true }));
 /* -------------------------- CORS (whitelist) -------------------------- */
-/**
- * Many dev setups run the UI on localhost:3000 (CRA/Next) or 5173 (Vite),
- * sometimes via 127.0.0.1. We’ll allow a small whitelist by default and
- * also let you extend via WEB_ORIGINS env (comma-separated).
- *
- * Example:
- *   WEB_ORIGINS=http://localhost:3000,http://127.0.0.1:5173
- */
 const DEFAULT_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -50,7 +75,6 @@ const fromEnv = (process.env.WEB_ORIGINS || process.env.WEB_ORIGIN || "")
 const ALLOWED_ORIGINS = [...new Set([...DEFAULT_ORIGINS, ...fromEnv])];
 const corsDelegate = {
     origin(origin, cb) {
-        // allow server-to-server / curl (no origin header)
         if (!origin)
             return cb(null, true);
         if (ALLOWED_ORIGINS.includes(origin))
@@ -63,7 +87,7 @@ const corsDelegate = {
 };
 app.use((0, cors_1.default)(corsDelegate));
 app.options("*", (0, cors_1.default)(corsDelegate));
-// Short-circuit OPTIONS early so other middleware (e.g., rate limiters) don’t block it
+// Short-circuit OPTIONS
 app.use((req, res, next) => {
     if (req.method === "OPTIONS")
         return res.sendStatus(200);
@@ -73,11 +97,7 @@ app.use((req, res, next) => {
 app.use((0, pino_http_1.default)({
     serializers: {
         req(req) {
-            return {
-                method: req.method,
-                url: req.url,
-                id: req.id,
-            };
+            return { method: req.method, url: req.url, id: req.id };
         },
     },
 }));
@@ -93,15 +113,14 @@ app.use("/v1", file_routes_1.default);
 app.use("/v1", ats_routes_1.default);
 app.use("/v1", application_routes_1.default);
 app.use("/v1", jobAlert_routes_1.default);
-// NEW: exams
 app.use("/v1", exam_routes_1.default);
 app.use("/v1", docs_routes_1.default);
+// ✅ MOUNT LEARNING ROUTES
+app.use("/v1", learning_routes_1.default);
 /* ---------------------------- Fallbacks -------------------------------- */
 app.use(error_1.notFound);
 app.use(error_1.errorHandler);
-// --- NON-MNS app middleware/routes appended ---
-// NON-MNS appended
+/* --------- lines appended earlier (optional) --------------------------- */
 app.use((0, cors_1.default)());
-// NON-MNS appended
 app.use((0, pino_http_1.default)());
 exports.default = app;

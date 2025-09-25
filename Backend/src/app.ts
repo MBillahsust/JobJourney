@@ -16,8 +16,9 @@ import atsRoutes from "./modules/ats/ats.routes";
 import applicationRoutes from "./modules/applications/application.routes";
 import alertRoutes from "./modules/alerts/jobAlert.routes";
 import docsRoutes from "./modules/docs/docs.routes";
-// NEW: exams
 import examRoutes from "./modules/exams/exam.routes";
+// ✅ ADD THIS
+import learningRoutes from "./modules/learning/learning.routes";
 
 const app = express();
 
@@ -29,14 +30,6 @@ app.use(json({ limit: "1mb" }));
 app.use(urlencoded({ extended: true }));
 
 /* -------------------------- CORS (whitelist) -------------------------- */
-/**
- * Many dev setups run the UI on localhost:3000 (CRA/Next) or 5173 (Vite),
- * sometimes via 127.0.0.1. We’ll allow a small whitelist by default and
- * also let you extend via WEB_ORIGINS env (comma-separated).
- *
- * Example:
- *   WEB_ORIGINS=http://localhost:3000,http://127.0.0.1:5173
- */
 const DEFAULT_ORIGINS = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
@@ -44,17 +37,15 @@ const DEFAULT_ORIGINS = [
   "http://127.0.0.1:5173",
 ];
 
-const fromEnv =
-  (process.env.WEB_ORIGINS || process.env.WEB_ORIGIN || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+const fromEnv = (process.env.WEB_ORIGINS || process.env.WEB_ORIGIN || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 const ALLOWED_ORIGINS = [...new Set([...DEFAULT_ORIGINS, ...fromEnv])];
 
 const corsDelegate = {
   origin(origin: string | undefined, cb: (err: Error | null, ok?: boolean) => void) {
-    // allow server-to-server / curl (no origin header)
     if (!origin) return cb(null, true);
     if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
     return cb(new Error(`CORS: Origin ${origin} not allowed`));
@@ -67,7 +58,7 @@ const corsDelegate = {
 app.use(cors(corsDelegate));
 app.options("*", cors(corsDelegate));
 
-// Short-circuit OPTIONS early so other middleware (e.g., rate limiters) don’t block it
+// Short-circuit OPTIONS
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
@@ -78,11 +69,7 @@ app.use(
   pino({
     serializers: {
       req(req) {
-        return {
-          method: req.method,
-          url: req.url,
-          id: (req as any).id,
-        };
+        return { method: req.method, url: req.url, id: (req as any).id };
       },
     },
   })
@@ -104,20 +91,17 @@ app.use("/v1", fileRoutes);
 app.use("/v1", atsRoutes);
 app.use("/v1", applicationRoutes);
 app.use("/v1", alertRoutes);
-// NEW: exams
 app.use("/v1", examRoutes);
 app.use("/v1", docsRoutes);
+// ✅ MOUNT LEARNING ROUTES
+app.use("/v1", learningRoutes);
 
 /* ---------------------------- Fallbacks -------------------------------- */
 app.use(notFound);
 app.use(errorHandler);
 
-
-
-// --- NON-MNS app middleware/routes appended ---
-// NON-MNS appended
+/* --------- lines appended earlier (optional) --------------------------- */
 app.use(cors());
-
-// NON-MNS appended
 app.use(pino());
+
 export default app;
