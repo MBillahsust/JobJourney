@@ -337,7 +337,7 @@ export function PrepPlan() {
     const payload = {
       job_title: newPlanForm.jobTitle.trim(),
       company_name: newPlanForm.company.trim(),
-      days: String(newPlanForm.days).trim(),
+      plan_duration: String(newPlanForm.days).trim(),
       experience_level: newPlanForm.experience,
       focus_areas: newPlanForm.priority || undefined,
       skill_gaps: newPlanForm.skillGaps || undefined,

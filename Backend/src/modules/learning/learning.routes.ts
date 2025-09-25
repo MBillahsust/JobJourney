@@ -13,7 +13,7 @@ const manualSchema = z.object({
   body: z.object({
     job_title: z.string().min(2),
     company_name: z.string().min(1),
-    days: z.string().min(1),
+    plan_duration: z.string().min(1),
     experience_level: z.string().min(1),
     focus_areas: z.string().optional(),
     skill_gaps: z.string().optional()

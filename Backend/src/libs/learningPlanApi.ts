@@ -15,7 +15,7 @@ interface ProviderSuccess {
 export interface ManualPlanRequest {
   job_title: string;
   company_name: string;
-  target_date: string;
+  plan_duration: string;
   experience_level: string;
   focus_areas?: string;
   skill_gaps?: string;
