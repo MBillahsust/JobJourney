@@ -41,8 +41,8 @@ export function WrittenExam() {
     {
       id: "quick",
       name: "Quick Check",
-      duration: "15-20 min",
-      questions: "8-12 questions",
+      duration: "20 min",
+      questions: "20 questions",
       description: "Fast MCQ-only assessment of core skills",
       sections: ["Core CS", "Role Skills", "Coding Basics"],
     },
