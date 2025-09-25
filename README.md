@@ -1,4 +1,4 @@
-# JobJourney — README
+# JobJourney
 
 JobJourney helps software professionals go from **job description → fit → plan → apply** with an AI-guided workflow. It turns your résumé and a target JD into a personalized 14-day prep plan, tailored application documents, and a lightweight tracker with reminders—so you can prepare with intent and apply with confidence.
 
