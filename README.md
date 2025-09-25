@@ -2,7 +2,7 @@
 
 ![status](https://img.shields.io/badge/status-active-black) ![focus](https://img.shields.io/badge/focus-SWE%2FBackend%2FSRE%2FData-black) ![plan](https://img.shields.io/badge/plan-day--by--day-black)
 
-> **Prepare with intent. Apply with confidence.** AI‑guided workflow from **job description → fit → plan → apply**, rendered as a **day‑by‑day** schedule (default 14 days).
+> **Prepare with intent. Apply with confidence.** AI‑guided workflow from **job description → fit → plan → apply**, rendered as a **day‑by‑day** schedule (default 7 days).
 
 ---
 
@@ -72,7 +72,7 @@
 **JobJourney** is a career preparation companion focused on engineering roles (SWE, Backend, SRE, Data; junior → senior). It provides:
 
 * A **fit analysis** between your résumé and a target JD
-* A **gap-aware day-by-day plan** (default 14 days; ~10 hrs/week) with daily tasks and resources
+* A **gap-aware day-by-day plan** (default 7 days; ~10 hrs/week) with daily tasks and resources
 * A **JD-aligned written exam** to benchmark your readiness
 * **Tailored bullets, emails, and cover letters**
 * An **application tracker** with reminders and calendar exports
@@ -113,7 +113,7 @@ A simple, explicit **work follow (workflow)** from discovery to offer. Each step
 
 1. **Discover** — Paste JD or pick from library → JD summary & red flags
 2. **Assess Fit** — Match score, evidence view, gap list
-3. **Plan** — Generate **Day 1…Day N** plan (default N=14). Map gaps → daily tasks
+3. **Plan** — Generate **Day 1…Day N** plan (default N=7). Map gaps → daily tasks
 4. **Practice** — Take exam; weak topics are injected back into Day N+ schedule
 5. **Tailor** — Create bullets, email, cover letter; all traceable to résumé facts
 6. **Apply** — Checklist + reminders (.ics export)
@@ -144,7 +144,7 @@ A simple, explicit **work follow (workflow)** from discovery to offer. Each step
 
 #### BF-2) Prep & Learning Engine
 
-* **Plan:** **Day-by-day** (default 14 days; ~10 hrs/week). Each day includes:
+* **Plan:** **Day-by-day** (default 7 days; ~10 hrs/week). Each day includes:
 
   * **2 coding questions**, **1 tiny system-design task**, **1 quick review**, **curated resources**
 * **Content:** CS fundamentals, DSA, ML/DL starters with **quizzes**
@@ -158,7 +158,7 @@ A simple, explicit **work follow (workflow)** from discovery to offer. Each step
 
 * **Modes:**
 
-  * **Quick Check (15–20 min):** 8–12 items (MCQ/short/coding snippet)
+  * **Quick Check (20 min):** 20 MCQs
   * **Standard (35–45 min):** 18–25 items + 1 mini system design
   * **Custom:** choose sections (e.g., Backend + SQL + Docker)
 * **Sections:** Core CS; Role Skills (Node/Express, Java/Spring, Python/Django, SRE/Linux/Docker/K8s); SQL; Coding Snippet; System Design Mini (requirements → API sketch → data model)
@@ -286,31 +286,6 @@ A simple, explicit **work follow (workflow)** from discovery to offer. Each step
 5. **Take the JD-Aligned Exam** to benchmark and refine your plan.
 6. **Tailor & Export** your bullets, email, and cover letter.
 7. **Track your applications**, set reminders, and schedule **follow-ups** with calendar exports.
-
----
-
-## FAQ
-
-**What roles are supported?**
-SWE, Backend, SRE, and Data across junior to senior levels (with ML/DL starters).
-
-**Can I use JobJourney offline?**
-The built-in JD library is available offline; most features require connectivity.
-
-**Do you auto-apply to jobs?**
-No. JobJourney prepares and organizes; applications are submitted by you.
-
-**How long is the plan?**
-A focused **day-by-day** schedule with a default **14-day** template. You can extend, compress, pause, or regenerate as gaps evolve.
-
----
-
-## Contributing
-
-We welcome feedback, bug reports, and suggestions for the JD library, quizzes, exam rubrics, and workflow presets. Please open an issue or submit a proposal describing:
-
-* The improvement, why it helps JobJourney users, and any acceptance criteria
-* Example prompts/tasks, rubric adjustments, or workflow rules where relevant
 
 ---
 
