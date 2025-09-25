@@ -1,6 +1,7 @@
 import { Router } from "express";
 import mongoose from "mongoose";
 import { requireAuth, AuthRequest } from "../../middlewares/auth";
+import { User } from "../auth/user.model";
 import { LearningPlan } from "./learningPlan.model";
 import { createManualPlan, analyzeJobDescription } from "../../libs/learningPlanApi";
 
@@ -151,8 +152,11 @@ router.post("/learning/manual", requireAuth, async (req: AuthRequest, res) => {
     // Force dailyPlan to the canonical 3-tasks-per-day array (stringified)
     extracted.dailyPlan = JSON.stringify(canonical);
 
+    const user = await User.findById(req.user!.id).lean();
+    const userEmail = (user?.email || "").toLowerCase();
     const created = await LearningPlan.create({
       userId: req.user!.id,
+      userEmail,
       kind: "manual",
       request: b,
       providerResponse: providerResp || { note: "canonical_plan_generated" },
@@ -173,8 +177,11 @@ router.post("/learning/manual", requireAuth, async (req: AuthRequest, res) => {
     });
   } catch (err: any) {
     console.error("Manual learning plan error", err);
+    const user = await User.findById(req.user!.id).lean();
+    const userEmail = (user?.email || "").toLowerCase();
     const created = await LearningPlan.create({
       userId: req.user!.id,
+      userEmail,
       kind: "manual",
       request: req.body,
       status: "error",
@@ -192,8 +199,11 @@ router.post("/learning/job-description", requireAuth, async (req: AuthRequest, r
     const providerResp = await analyzeJobDescription(req.body);
     const extracted = extractOutput(providerResp);
 
+    const user = await User.findById(req.user!.id).lean();
+    const userEmail = (user?.email || "").toLowerCase();
     const created = await LearningPlan.create({
       userId: req.user!.id,
+      userEmail,
       kind: "job_description",
       request: req.body,
       providerResponse: providerResp,
@@ -206,8 +216,11 @@ router.post("/learning/job-description", requireAuth, async (req: AuthRequest, r
     res.status(201).json({ id: created.id, ...extracted });
   } catch (err: any) {
     console.error("Job description plan error", err);
+    const user = await User.findById(req.user!.id).lean();
+    const userEmail = (user?.email || "").toLowerCase();
     const created = await LearningPlan.create({
       userId: req.user!.id,
+      userEmail,
       kind: "job_description",
       request: req.body,
       status: "error",
@@ -218,13 +231,18 @@ router.post("/learning/job-description", requireAuth, async (req: AuthRequest, r
 });
 
 router.get("/learning", requireAuth, async (req: AuthRequest, res) => {
-  const docs = await LearningPlan.find({ userId: req.user!.id }).sort({ createdAt: -1 }).limit(100);
+  const user = await User.findById(req.user!.id).lean();
+  const userEmail = (user?.email || "").toLowerCase();
+  const docs = await LearningPlan.find({ $or: [{ userId: req.user!.id }, { userEmail }] })
+    .sort({ createdAt: -1 })
+    .limit(100);
   res.json({
     items: docs.map((d) => ({
       id: d.id,
       kind: d.kind,
       createdAt: d.createdAt,
       status: d.status,
+      request: d.request,
       dailyPlan: d.dailyPlan,
       weeklyMilestones: d.weeklyMilestones,
       resources: d.resources,

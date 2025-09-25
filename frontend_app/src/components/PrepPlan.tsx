@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -169,6 +169,62 @@ export function PrepPlan() {
   );
 
   const weeklyStats = { totalHours: 10, completedHours: 7.5, tasksCompleted: 12, totalTasks: 18 };
+
+  // Load user's saved plans from backend on mount
+  useEffect(() => {
+    const token = getToken();
+    const url = apiJoin(API_ROOT, "/learning");
+    (async () => {
+      try {
+        const resp = await fetch(url, {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (!resp.ok) return; // keep demo cards if unauthorized/not running backend
+        const data = await resp.json();
+        const items: any[] = Array.isArray(data?.items) ? data.items : [];
+
+        const mappedPlans: UIPlan[] = items.map((it) => {
+          const req = it.request || {};
+          const company = String(req.company_name || "");
+          const role = String(req.job_title || "");
+          const duration = String(req.plan_duration || req.days || "");
+          return {
+            id: String(it.id),
+            name: `${company} ${role}`.trim() ? `${company} ${role} Plan` : `Plan ${new Date(it.createdAt).toLocaleDateString()}`,
+            company: company || "-",
+            role: role || "-",
+            duration: duration || "",
+            progress: 0,
+            status: it.status === "ready" ? "New" : "In Progress",
+            created: new Date(it.createdAt).toISOString().slice(0, 10),
+            targetInterview: "",
+            skillsCount: 0,
+            totalHours: 0,
+          } as UIPlan;
+        });
+
+        // Parse stored daily plans too
+        const parsedMap: Record<string, GeneratedPlan> = {};
+        items.forEach((it) => {
+          const parsed = parseDailyPlanToGeneratedPlan(it.dailyPlan);
+          parsedMap[String(it.id)] = parsed;
+        });
+
+        if (mappedPlans.length) {
+          setPrepPlans(mappedPlans);
+          setGeneratedPlans(parsedMap);
+          setDayIndexByPlan(mappedPlans.reduce((acc, p) => ({ ...acc, [p.id]: 0 }), {} as Record<string, number>));
+          setSelectedPlan(mappedPlans[0].id);
+        }
+      } catch {
+        // ignore failures; user can still generate new plans
+      }
+    })();
+  }, [API_ROOT]);
 
   const filteredPlans = prepPlans.filter(
     (plan) =>
@@ -734,5 +790,5 @@ export function PrepPlan() {
         })}
       </div>
     </div>
-  );
+  );  
 }

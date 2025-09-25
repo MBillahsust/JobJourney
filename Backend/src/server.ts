@@ -17,6 +17,7 @@ import { FileModel } from "./modules/files/file.model";
 import { ATSEvaluation } from "./modules/ats/ats.model";
 import { Application } from "./modules/applications/application.model";
 import { JobAlert } from "./modules/alerts/jobAlert.model";
+import { LearningPlan } from "./modules/learning/learningPlan.model";
 
 const PORT = Number(process.env.PORT || 4000);
 const { MONGODB_URI, JWT_SECRET } = process.env;
@@ -47,7 +48,8 @@ async function main() {
     FileModel.init(),
     ATSEvaluation.init(),
     Application.init(),
-    JobAlert.init()
+    JobAlert.init(),
+    LearningPlan.init()
   ]);
   console.log("✅ Indexes ensured");
 
