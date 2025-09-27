@@ -145,6 +145,17 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    // Clear auth tokens and user so UI switches to unauthenticated state
+    try {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("accessTokenExpiresAt");
+      localStorage.removeItem(LS_KEYS.USER);
+      // Proactively set view/screen so Home renders immediately without relying on effects
+      localStorage.setItem(LS_KEYS.VIEW, "home");
+      localStorage.setItem(LS_KEYS.SCREEN, "dashboard");
+    } catch {}
+
     setUser(null);
     setCurrentView("home");
     setCurrentScreen("dashboard");
