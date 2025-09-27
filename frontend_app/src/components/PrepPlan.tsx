@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import React, { useEffect, useState } from "react";
+=======
+import React, { useEffect, useMemo, useState } from "react";
+>>>>>>> 3da39fa199f8187367a8b71844475cb78a6febe8
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -161,6 +165,7 @@ function PrepPlan() {
   // auto-load details when user selects a plan that we don't have yet
   useEffect(() => { if (selectedPlan && !generatedPlans[selectedPlan]) loadPlanDetails(selectedPlan); }, [selectedPlan]);
 
+<<<<<<< HEAD
   function getPlanStats(planId: string) {
     const gen = generatedPlans[planId];
     if (!gen)
@@ -193,6 +198,70 @@ function PrepPlan() {
       completion,
     };
   }
+=======
+  // Load user's saved plans from backend on mount
+  useEffect(() => {
+    const token = getToken();
+    const url = apiJoin(API_ROOT, "/learning");
+    (async () => {
+      try {
+        const resp = await fetch(url, {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (!resp.ok) return; // keep demo cards if unauthorized/not running backend
+        const data = await resp.json();
+        const items: any[] = Array.isArray(data?.items) ? data.items : [];
+
+        const mappedPlans: UIPlan[] = items.map((it) => {
+          const req = it.request || {};
+          const company = String(req.company_name || "");
+          const role = String(req.job_title || "");
+          const duration = String(req.plan_duration || req.days || "");
+          return {
+            id: String(it.id),
+            name: `${company} ${role}`.trim() ? `${company} ${role} Plan` : `Plan ${new Date(it.createdAt).toLocaleDateString()}`,
+            company: company || "-",
+            role: role || "-",
+            duration: duration || "",
+            progress: 0,
+            status: it.status === "ready" ? "New" : "In Progress",
+            created: new Date(it.createdAt).toISOString().slice(0, 10),
+            targetInterview: "",
+            skillsCount: 0,
+            totalHours: 0,
+          } as UIPlan;
+        });
+
+        // Parse stored daily plans too
+        const parsedMap: Record<string, GeneratedPlan> = {};
+        items.forEach((it) => {
+          const parsed = parseDailyPlanToGeneratedPlan(it.dailyPlan);
+          parsedMap[String(it.id)] = parsed;
+        });
+
+        if (mappedPlans.length) {
+          setPrepPlans(mappedPlans);
+          setGeneratedPlans(parsedMap);
+          setDayIndexByPlan(mappedPlans.reduce((acc, p) => ({ ...acc, [p.id]: 0 }), {} as Record<string, number>));
+          setSelectedPlan(mappedPlans[0].id);
+        }
+      } catch {
+        // ignore failures; user can still generate new plans
+      }
+    })();
+  }, [API_ROOT]);
+
+  const filteredPlans = prepPlans.filter(
+    (plan) =>
+      plan.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      plan.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      plan.role.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+>>>>>>> 3da39fa199f8187367a8b71844475cb78a6febe8
 
   async function loadPlans() {
     const token = getToken();
@@ -537,6 +606,7 @@ function PrepPlan() {
         </div>
       </div>
     </div>
+<<<<<<< HEAD
   );
 }
 
@@ -578,3 +648,7 @@ function formatHours(h: number): string {
 
 export default PrepPlan;
 export { PrepPlan };
+=======
+  );  
+}
+>>>>>>> 3da39fa199f8187367a8b71844475cb78a6febe8
