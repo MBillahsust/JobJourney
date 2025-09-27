@@ -19,6 +19,8 @@ import docsRoutes from "./modules/docs/docs.routes";
 import examRoutes from "./modules/exams/exam.routes";
 // ✅ ADD THIS
 import learningRoutes from "./modules/learning/learning.routes";
+import calendarRoutes from "./modules/calendar/calendar.routes";
+
 
 const app = express();
 
@@ -95,6 +97,7 @@ app.use("/v1", examRoutes);
 app.use("/v1", docsRoutes);
 // ✅ MOUNT LEARNING ROUTES
 app.use("/v1", learningRoutes);
+app.use("/v1", calendarRoutes);
 
 /* ---------------------------- Fallbacks -------------------------------- */
 app.use(notFound);

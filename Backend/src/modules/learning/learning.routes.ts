@@ -259,4 +259,17 @@ router.get("/learning/:id", requireAuth, async (req: AuthRequest, res) => {
   });
 });
 
+// Delete a learning plan (only if it belongs to the current user)
+router.delete("/learning/:id", requireAuth, async (req: AuthRequest, res) => {
+  const { id } = req.params;
+  if (!mongoose.isValidObjectId(id)) {
+    return res.status(400).json({ error: { code: "BAD_REQUEST", message: "Invalid id" } });
+  }
+  const deleted = await LearningPlan.findOneAndDelete({ _id: id, userId: req.user!.id });
+  if (!deleted) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Not found" } });
+  }
+  return res.status(204).send();
+});
+
 export default router;

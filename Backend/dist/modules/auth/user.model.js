@@ -35,6 +35,12 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.User = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
+const GoogleAuthSchema = new mongoose_1.Schema({
+    accessToken: String,
+    refreshToken: String,
+    expiryDate: Number,
+    email: String,
+}, { _id: false });
 const ProfileSchema = new mongoose_1.Schema({
     phone: String,
     location: String,
@@ -51,6 +57,7 @@ const UserSchema = new mongoose_1.Schema({
     passwordHash: { type: String, required: true },
     tokenVersion: { type: Number, default: 0 },
     profile: { type: ProfileSchema, default: {} },
+    google: { type: GoogleAuthSchema, default: {} },
 }, { timestamps: true });
 // Ensure emails are stored lowercase and trimmed
 UserSchema.pre("save", function (next) {

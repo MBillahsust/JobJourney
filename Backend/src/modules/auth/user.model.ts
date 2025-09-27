@@ -12,6 +12,24 @@ export interface Profile {
   preferredLocations?: string[];
 }
 
+export interface GoogleAuth {
+  accessToken?: string;
+  refreshToken?: string;
+  expiryDate?: number;
+  email?: string;
+}
+
+const GoogleAuthSchema = new Schema<GoogleAuth>(
+  {
+    accessToken: String,
+    refreshToken: String,
+    expiryDate: Number,
+    email: String,
+  },
+  { _id: false }
+);
+
+
 export interface UserDoc extends Document {
   firstName: string;
   lastName: string;
@@ -19,6 +37,7 @@ export interface UserDoc extends Document {
   passwordHash: string;
   tokenVersion: number;          // used to invalidate existing refresh tokens
   profile?: Profile;
+  google?: GoogleAuth;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -44,6 +63,7 @@ const UserSchema = new Schema<UserDoc>(
     passwordHash: { type: String, required: true },
     tokenVersion: { type: Number, default: 0 },
     profile:   { type: ProfileSchema, default: {} },
+    google:    { type: GoogleAuthSchema, default: {} },
   },
   { timestamps: true }
 );

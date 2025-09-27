@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Dashboard } from "./components/Dashboard";
 import { JDAnalysis } from "./components/JDAnalysis";
-import { PrepPlan } from "./components/PrepPlan";
+import PrepPlan from "./components/PrepPlan";
 import { WrittenExam } from "./components/WrittenExam";
 import { ApplicationTracker } from "./components/ApplicationTracker";
 import { ProfileSetup } from "./components/ProfileSetup";

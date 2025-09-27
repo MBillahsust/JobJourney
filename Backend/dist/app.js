@@ -55,6 +55,7 @@ const docs_routes_1 = __importDefault(require("./modules/docs/docs.routes"));
 const exam_routes_1 = __importDefault(require("./modules/exams/exam.routes"));
 // ✅ ADD THIS
 const learning_routes_1 = __importDefault(require("./modules/learning/learning.routes"));
+const calendar_routes_1 = __importDefault(require("./modules/calendar/calendar.routes"));
 const app = (0, express_1.default)();
 /* -------------------------- Security headers -------------------------- */
 app.use((0, helmet_1.default)());
@@ -117,6 +118,7 @@ app.use("/v1", exam_routes_1.default);
 app.use("/v1", docs_routes_1.default);
 // ✅ MOUNT LEARNING ROUTES
 app.use("/v1", learning_routes_1.default);
+app.use("/v1", calendar_routes_1.default);
 /* ---------------------------- Fallbacks -------------------------------- */
 app.use(error_1.notFound);
 app.use(error_1.errorHandler);
