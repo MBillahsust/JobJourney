@@ -19,7 +19,6 @@ const file_model_1 = require("./modules/files/file.model");
 const ats_model_1 = require("./modules/ats/ats.model");
 const application_model_1 = require("./modules/applications/application.model");
 const jobAlert_model_1 = require("./modules/alerts/jobAlert.model");
-const learningPlan_model_1 = require("./modules/learning/learningPlan.model");
 const PORT = Number(process.env.PORT || 4000);
 const { MONGODB_URI, JWT_SECRET } = process.env;
 if (!MONGODB_URI || !JWT_SECRET) {
@@ -45,8 +44,7 @@ async function main() {
         file_model_1.FileModel.init(),
         ats_model_1.ATSEvaluation.init(),
         application_model_1.Application.init(),
-        jobAlert_model_1.JobAlert.init(),
-        learningPlan_model_1.LearningPlan.init()
+        jobAlert_model_1.JobAlert.init()
     ]);
     console.log("✅ Indexes ensured");
     app_1.default.listen(PORT, () => {

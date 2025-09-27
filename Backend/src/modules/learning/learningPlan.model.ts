@@ -4,7 +4,6 @@ export type LearningPlanKind = "manual" | "job_description" | "comprehensive";
 
 export interface LearningPlanDoc extends Document {
   userId: mongoose.Types.ObjectId;
-  userEmail: string; // denormalized for fast lookup/filtering
   kind: LearningPlanKind;
   // Raw request we sent to provider
   request: any;
@@ -26,7 +25,6 @@ export interface LearningPlanDoc extends Document {
 const LearningPlanSchema = new Schema<LearningPlanDoc>(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    userEmail: { type: String, required: true, index: true },
     kind: { type: String, enum: ["manual", "job_description", "comprehensive"], required: true },
     request: Schema.Types.Mixed,
     providerResponse: Schema.Types.Mixed,
@@ -43,6 +41,5 @@ const LearningPlanSchema = new Schema<LearningPlanDoc>(
 );
 
 LearningPlanSchema.index({ userId: 1, createdAt: -1 });
-LearningPlanSchema.index({ userEmail: 1, createdAt: -1 });
 
 export const LearningPlan = mongoose.model<LearningPlanDoc>("LearningPlan", LearningPlanSchema);
