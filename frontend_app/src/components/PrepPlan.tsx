@@ -7,6 +7,7 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Label } from "./ui/label";
+import CalendarSyncModal from "./CalendarSyncModal";
 import { Calendar, Clock, CheckCircle2, Circle, Code, BookOpen, Target, Play, Search, Plus, Bot, Sparkles, Users } from "lucide-react";
 
 // ---------- Types ----------
@@ -73,6 +74,7 @@ function apiJoin(root: string, path: string) {
 
 // Local persistence for task completion per plan
 const COMPLETIONS_KEY = "jj:taskCompletions:v1";
+const CALENDAR_DATES_KEY = "jj:calendarDates:v1";
 function readCompletionStore(): Record<string, string[]> {
   try {
     const raw = typeof window !== "undefined" ? localStorage.getItem(COMPLETIONS_KEY) : null;
@@ -85,6 +87,21 @@ function readCompletionStore(): Record<string, string[]> {
 function writeCompletionStore(store: Record<string, string[]>) {
   try {
     if (typeof window !== "undefined") localStorage.setItem(COMPLETIONS_KEY, JSON.stringify(store));
+  } catch {}
+}
+// Local persistence for per-plan selected calendar start dates
+function readCalendarDateStore(): Record<string, string> {
+  try {
+    const raw = typeof window !== "undefined" ? localStorage.getItem(CALENDAR_DATES_KEY) : null;
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+function writeCalendarDateStore(store: Record<string, string>) {
+  try {
+    if (typeof window !== "undefined") localStorage.setItem(CALENDAR_DATES_KEY, JSON.stringify(store));
   } catch {}
 }
 function getCompletedIdsForPlan(planId: string): Set<string> {
@@ -181,6 +198,20 @@ function PrepPlan() {
   const [pushingToCalendar, setPushingToCalendar] = useState(false);
   const [calendarDateByPlan, setCalendarDateByPlan] = useState<Record<string, string>>({});
   const [pushingPlanId, setPushingPlanId] = useState<string | null>(null);
+
+  // >>> ADDED: modal state <<<
+  const [calendarModalFor, setCalendarModalFor] = useState<string | null>(null);
+
+  // Rehydrate per-plan selected calendar dates from localStorage
+  useEffect(() => {
+    const store = readCalendarDateStore();
+    if (store && Object.keys(store).length) setCalendarDateByPlan(store);
+  }, []);
+
+  // Persist per-plan selected calendar dates whenever they change
+  useEffect(() => {
+    writeCalendarDateStore(calendarDateByPlan);
+  }, [calendarDateByPlan]);
 
   async function fetchCalendarStatus() {
     try {
@@ -659,6 +690,13 @@ function PrepPlan() {
         delete store[planId];
         writeCompletionStore(store);
       }
+
+      // Clean persisted calendar date for this plan
+      const dateStore = readCalendarDateStore();
+      if (planId in dateStore) {
+        delete dateStore[planId];
+        writeCalendarDateStore(dateStore);
+      }
     } catch (e: any) {
       alert(e?.message || "Failed to delete plan");
     }
@@ -920,17 +958,24 @@ function PrepPlan() {
                         placeholder="Select date"
                         disabled={pushingPlanId === plan.id}
                       />
+
+                      {/* >>> ADDED: open CalendarSyncModal button <<< */}
                       <Button
                         onClick={(e) => {
                           e.stopPropagation();
-                          pushPlanToCalendar(plan.id);
+                          const date = calendarDateByPlan[plan.id];
+                          if (!date) {
+                            alert("Insert a date");
+                            return;
+                          }
+                          setCalendarModalFor(plan.id);
                         }}
-                        disabled={pushingPlanId === plan.id}
                         className="gap-2"
                         variant="default"
-                        title="Add this plan to Google Calendar"
+                        title={calendarDateByPlan[plan.id] ? "Add this plan to Google Calendar" : "Insert a date"}
+                        disabled={pushingPlanId === plan.id || !calendarDateByPlan[plan.id]}
                       >
-                        <Calendar className="h-4 w-4" /> Add to Calendar
+                        <Calendar className="h-4 w-4" /> Add to Google Calendar
                       </Button>
                     </div>
                     <div className="mt-2 text-xs text-muted-foreground">Created {plan.created}</div>
@@ -1031,6 +1076,22 @@ function PrepPlan() {
           )}
         </div>
       </div>
+
+      {/* >>> ADDED: Calendar Sync Modal (once) <<< */}
+      {calendarModalFor && (
+        <CalendarSyncModal
+          open={!!calendarModalFor}
+          onOpenChange={(v) => { if (!v) setCalendarModalFor(null); }}
+          planId={calendarModalFor}
+          plan={generatedPlans[calendarModalFor] || null}
+          apiRoot={API_ROOT}
+          getToken={getToken}
+          startDate={calendarDateByPlan[calendarModalFor] || ""}
+          onSynced={(count) => {
+            // Optional: toast here if you have one; alert is already handled inside the modal
+          }}
+        />
+      )}
     </div>
   );
 }

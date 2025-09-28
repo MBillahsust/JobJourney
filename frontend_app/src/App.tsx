@@ -326,8 +326,8 @@ export default function App() {
         )}
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
+      {/* Main Content: allow page-level scrolling like Dashboard */}
+      <div className="flex-1 min-h-0 overflow-auto">
         {currentScreen === "settings" ? <Settings /> : <CurrentComponent />}
       </div>
     </div>
