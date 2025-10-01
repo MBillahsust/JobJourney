@@ -289,6 +289,21 @@ A simple, explicit **work follow (workflow)** from discovery to offer. Each step
 
 ---
 
+## API Documentation
+
+JobJourney’s workflows are powered by SmythOS agents.  
+We expose them as REST APIs with OpenAPI/Swagger specifications.  
+
+👉 Full documentation with endpoints, request/response examples: [docs/API.md](./docs/API.md)
+
+Each workflow (Job Analysis, Plan Creation, Mock Exam, Resume Checking, Cover Letter, Application Email, Grammar Check, Custom Questions) has:
+- Purpose & description
+- Endpoint + request body example
+- Notes on response behavior
+- Swagger/OpenAPI link for interactive testing
+
+---
+
 ## Support
 
 Questions, feedback, or partnership inquiries: **[support@jobjourney.app](mailto:support@jobjourney.app)**
